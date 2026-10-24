@@ -20,4 +20,6 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - name: Run the test suite
-        run: node --test tests/*.test.mjs
+        # A directory argument keeps the glob out of the platform shell: pwsh on
+        # Windows would hand the literal "tests/*.test.mjs" to node.
+        run: node --test tests/
