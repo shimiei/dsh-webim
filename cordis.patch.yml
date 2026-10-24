@@ -1,0 +1,56 @@
+# dsh-webim bundle patch
+#
+# 插入一个宿主侧插件：在本机另开一个端口（默认 0.0.0.0:3081），
+# 用它作为「远程入口」——带令牌的链接（设置页里出二维码/可复制）直接登录，
+# 口令作为备用方式；登录后把 DSH Web 前端原样代理给远端浏览器，
+# 请求全部转给本机正在运行的 Harness（同一套 API / WebSocket / 会话），
+# 并额外提供远程可用的本地文件访问与路径链接转换。
+#
+# 前端 UI 完全沿用 DSH 自带的那一套（同一个 index、同一套插件 bundle），
+# 这里不另做界面；“另外做”的是入口鉴权、同源桥接、路径/文件适配。
+#
+# 改这里之后需要重启宿主才会生效。默认关闭口令入口，只用令牌链接进入
+# （要恢复口令入口就把 password 设成非空字符串，例如 '换成强口令'）。
+# 令牌默认自动生成并保存在 $DSH_HOME/webim/token.json，可在 设置 → 远程接入 里刷新。
+- insert:
+    - id: dsh-webim
+      name: 'dsh-webim'
+      config:
+        enabled: true
+        # 对外的监听地址。0.0.0.0 = 所有网卡（由路由器把 3081 转发进来）。
+        host: '0.0.0.0'
+        port: 3081
+        # 备用进入口令。'' = 关闭口令入口（只认令牌链接 / 二维码），
+        # 填非空字符串则同时保留 http://<公网地址>:3081 的口令登录页。
+        password: ''
+        # 固定入口令牌。留空 = 自动生成并持久化，可在设置页刷新；
+        # 填了则以此为准，设置页里的「刷新令牌」会被禁用。
+        accessToken: ''
+        # 登录状态保持天数
+        sessionDays: 30
+        # 失败锁定：10 分钟内失败 8 次，锁定 15 分钟
+        maxFailures: 8
+        failureWindowMinutes: 10
+        blockMinutes: 15
+        # 允许通过 /__webim/fs 浏览的根目录；空数组 = 不限制（仍受 deniedPaths 约束）
+        allowedRoots: []
+        # 额外的禁止路径（不区分大小写的前缀匹配）
+        deniedPaths: []
+        # 把聊天里出现的本地绝对路径变成可点击的远程文件链接
+        linkifyPaths: true
+        # 记录每个代理请求（排障用，默认关闭）
+        logRequests: false
+        # 现成的 cloudflared 路径；留空 = 用 $DSH_HOME/webim/cloudflared 里自动下载的那份
+        tunnelBinary: ''
+        # false = 不自动下载 cloudflared（离线 / 受控网络下先手动放好）
+        tunnelAutoInstall: true
+        # 运行时开关的首启默认值；改完在 设置 → 远程接入 里即时生效（写 webim/features.json）
+        features:
+          enabled: true
+          lan: true
+          public: true
+          mobileUi: true
+          tunnel: false
+          fileBrowser: true
+          linkifyPaths: true
+          pill: true

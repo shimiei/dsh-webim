@@ -1,0 +1,340 @@
+/* Document-level styles for the dsh-webim client add-on.
+   The floating entry pill lives in a shadow root, so its styles are inline
+   in client.js and cannot be affected by the Harness UI stylesheet. */
+
+a.dsh-webim-path {
+  color: inherit !important;
+  text-decoration: underline dotted rgba(77, 107, 254, 0.75) !important;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+a.dsh-webim-path:hover {
+  text-decoration: underline solid rgba(77, 107, 254, 0.95) !important;
+}
+
+.dsh-webim-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%) translateY(8px);
+  z-index: 2147483001;
+  max-width: min(86vw, 420px);
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(24, 25, 29, 0.94);
+  color: #f4f5f7;
+  font: 13px/1.5 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  word-break: break-word;
+}
+
+.dsh-webim-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ===========================================================================
+   Phone layout
+   ---------------------------------------------------------------------------
+   The Harness shell is a three column desktop layout (rail + conversation +
+   right panel) with fixed column widths, so on a 390px screen the center
+   column overflows and the composer is cut off. When html.webim-mobile is set
+   the rail becomes an off-canvas drawer, the conversation column takes the
+   whole width, and the shell is pinned to the visual viewport height so the
+   on-screen keyboard does not push the composer out of sight.
+
+   Column class names come from CSS modules (<hash>_sidebarCol …), so matching
+   on the stable suffix keeps this working across builds.
+   =========================================================================== */
+
+html.webim-mobile {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html.webim-mobile body {
+  overscroll-behavior-y: none;
+}
+
+/* Collapse the desktop grid to a single column: the sidebar is out of flow now,
+   so its 56px track must not keep stealing width from the conversation.
+   The shell height is deliberately NOT pinned here — forcing `100dvh` on the
+   frame detached the composer from the bottom of the conversation (it ended up
+   ~2400px above the viewport, which is exactly the "input box disappeared" bug)
+   and the keyboard is already handled by `interactive-widget=resizes-content`.
+   The `:not(.wb…)` guards keep these attribute selectors from matching this
+   plugin's own settings markup. */
+html.webim-mobile [class*="_frame"]:not([class^="wb"]):not([class*=" wb-"]),
+html.webim-mobile [class*="-frame"]:not([class^="wb"]):not([class*=" wb-"]) {
+  width: 100% !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+/* --- conversation column takes the whole width ---------------------------- */
+
+html.webim-mobile [class*="centerCol"],
+html.webim-mobile [class*="center-col"] {
+  grid-column: 1 / -1 !important;
+  flex: 1 1 100% !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+}
+
+/* --- right column ---------------------------------------------------------
+   The app already renders its right panel as a full-width overlay on a narrow
+   screen and keeps the column out of the layout on its own, so this layer does
+   not touch it: transforming the column would drag its fixed-position header
+   (and the "open right panel" button) off-screen with it. */
+
+/* --- rail becomes a drawer ------------------------------------------------ */
+
+html.webim-mobile [class*="sidebarCol"],
+html.webim-mobile [class*="sidebar-col"] {
+  position: fixed !important;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: min(86vw, 320px) !important;
+  max-width: 320px !important;
+  height: 100dvh !important;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  transform: translate3d(-104%, 0, 0);
+  transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+  z-index: 70;
+  background: var(--dsh-bg, #16171b) !important;
+  box-shadow: 12px 0 40px rgba(0, 0, 0, 0.5);
+  will-change: transform;
+}
+
+html.webim-mobile.webim-drawer-open [class*="sidebarCol"],
+html.webim-mobile.webim-drawer-open [class*="sidebar-col"] {
+  transform: translate3d(0, 0, 0);
+}
+
+/* Inside the drawer the rail must render expanded, not icon-only. */
+html.webim-mobile [class*="sidebarCol"] [class*="_collapsed"],
+html.webim-mobile [class*="sidebarCol"] [class*="collapsed"] {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+html.webim-mobile [class*="sidebarCol"] nav,
+html.webim-mobile [class*="sidebarCol"] [class*="panelList"] {
+  width: 100% !important;
+}
+
+html.webim-mobile .webim-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  background: rgba(0, 0, 0, 0.48);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html.webim-mobile.webim-drawer-open .webim-scrim {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* The desktop pill would sit on top of the drawer footer, so it steps aside. */
+html.webim-mobile #dsh-webim-entry {
+  transition: opacity 0.15s ease;
+}
+
+html.webim-mobile.webim-drawer-open #dsh-webim-entry {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The pill also floats over dialogs (Settings), where it covers real controls. */
+body:has(dialog[open]) #dsh-webim-entry,
+body:has([role="dialog"]) #dsh-webim-entry {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* --- drawer toggle ------------------------------------------------------- */
+
+html.webim-mobile .webim-drawer-btn {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 10px);
+  left: 10px;
+  z-index: 80;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  color: #e9ebf0;
+  background: rgba(30, 32, 38, 0.72);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.32), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html.webim-mobile .webim-drawer-btn:active {
+  transform: scale(0.94);
+}
+
+html.webim-mobile.webim-drawer-open .webim-drawer-btn {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* --- touch ergonomics ---------------------------------------------------- */
+
+@media (pointer: coarse) {
+  /* 16px keeps iOS from zooming into a focused field. */
+  html.webim-mobile input,
+  html.webim-mobile textarea,
+  html.webim-mobile [contenteditable="true"] {
+    font-size: 16px !important;
+  }
+
+  html.webim-mobile button,
+  html.webim-mobile [role="button"] {
+    min-height: 34px;
+  }
+
+  html.webim-mobile a.dsh-webim-path {
+    padding: 1px 2px;
+  }
+}
+
+/* Composer and message list: use the width, respect the notch and home bar. */
+html.webim-mobile [class*="composer"] {
+  padding-left: max(10px, env(safe-area-inset-left)) !important;
+  padding-right: max(10px, env(safe-area-inset-right)) !important;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom)) !important;
+}
+
+html.webim-mobile [class*="messageList"],
+html.webim-mobile [class*="message-list"],
+html.webim-mobile [class*="messages"] {
+  padding-left: max(10px, env(safe-area-inset-left)) !important;
+  padding-right: max(10px, env(safe-area-inset-right)) !important;
+}
+
+/* Long code blocks and tables scroll inside their own box instead of
+   stretching the whole conversation. */
+html.webim-mobile pre,
+html.webim-mobile table,
+html.webim-mobile .markdown-body {
+  max-width: 100% !important;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+html.webim-mobile .dsh-webim-toast {
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  max-width: 90vw;
+  font-size: 13px;
+}
+
+/* ===========================================================================
+   Settings dialog
+   ---------------------------------------------------------------------------
+   The dialog is a two column panel (188px nav + content) sized for a desktop
+   window: at 390px the nav keeps its width and the content pane is squeezed to
+   ~150px, which is what made the settings page unusable on a phone. Below the
+   breakpoint the nav becomes a horizontally scrolling strip and the content
+   gets the whole screen. Selectors stay structural (`[role="dialog"] > nav`,
+   `nav + *`) because the class names are CSS-module hashes.
+   =========================================================================== */
+
+html.webim-mobile [role="dialog"],
+html.webim-mobile dialog[open] {
+  inset: 0 !important;
+  margin: 0 !important;
+  width: 100vw !important;
+  max-width: 100vw !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  border-radius: 0 !important;
+  flex-direction: column !important;
+  display: flex !important;
+  overflow: hidden !important;
+}
+
+/* Nav turns into a single scrollable row of chips. */
+html.webim-mobile [role="dialog"] > nav,
+html.webim-mobile dialog[open] > nav {
+  flex: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+  padding: calc(8px + env(safe-area-inset-top)) 8px 4px !important;
+  border-right: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent) !important;
+}
+
+html.webim-mobile [role="dialog"] > nav > div:last-child,
+html.webim-mobile dialog[open] > nav > div:last-child {
+  flex-direction: row !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  gap: 6px !important;
+  max-height: none !important;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+html.webim-mobile [role="dialog"] > nav button,
+html.webim-mobile dialog[open] > nav button {
+  flex: none !important;
+  width: auto !important;
+  white-space: nowrap;
+}
+
+html.webim-mobile [role="dialog"] > nav span,
+html.webim-mobile dialog[open] > nav span {
+  width: auto !important;
+  overflow: visible !important;
+}
+
+/* Content column takes over the rest of the screen. */
+html.webim-mobile [role="dialog"] > *:not(nav),
+html.webim-mobile dialog[open] > *:not(nav) {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+}
+
+html.webim-mobile [role="dialog"] > *:not(nav):last-child,
+html.webim-mobile dialog[open] > *:not(nav):last-child {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+}
+
+/* Form rows stack instead of running off the right edge. */
+html.webim-mobile [role="dialog"] section > *,
+html.webim-mobile dialog[open] section > * {
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+html.webim-mobile [role="dialog"] input,
+html.webim-mobile [role="dialog"] textarea,
+html.webim-mobile dialog[open] input,
+html.webim-mobile dialog[open] textarea {
+  max-width: 100% !important;
+  font-size: 16px !important; /* 16px keeps iOS from zooming on focus. */
+}

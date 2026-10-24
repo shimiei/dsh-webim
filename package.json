@@ -1,0 +1,62 @@
+{
+  "name": "dsh-webim",
+  "version": "1.5.1",
+  "private": false,
+  "description": "Remote web entry for DeepSeek Harness: reuse the same DSH web UI from your phone or another network, with a rotatable token link and QR code in Settings, a built-in Cloudflare quick tunnel, a phone layout, per-feature switches, and an HTTP/WebSocket bridge to the local Harness.",
+  "keywords": ["deepseek", "harness", "dsh", "plugin", "remote", "tunnel", "cloudflare", "qr", "mobile"],
+  "homepage": "https://github.com/shimiei/dsh-webim#readme",
+  "repository": { "type": "git", "url": "git+https://github.com/shimiei/dsh-webim.git" },
+  "bugs": { "url": "https://github.com/shimiei/dsh-webim/issues" },
+  "author": "shimiei",
+  "license": "MIT",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": "./client.js",
+    "./gateway": "./lib/gateway.js",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "dsh-webim": "bin/serve.mjs"
+  },
+  "files": [
+    "docs/banner.png",
+    "docs/icon.png",
+    "lib",
+    "assets",
+    "bin",
+    "scripts",
+    "client.js",
+    "cordis.patch.yml",
+    "README.md",
+    "package.json"
+  ],
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "serve": "node bin/serve.mjs",
+    "install-plugin": "node scripts/install.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-slots"
+      ]
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,31 @@
+# 编辑器 / 系统
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+
+# 依赖与临时产物
+node_modules/
+pnpm-lock.yaml
+npm-debug.log*
+
+# 本地生成的截图与图片工作区（docs/ 里的成品才入库）
+artifacts/
+dsh-image-gen/
+
+# 从 app.asar 提取的宿主实现，仅本机对照用，不随仓库分发
+reference/
+
+# 本机状态：令牌、二维码指向、功能开关、cloudflared 二进制都在 $DSH_HOME/webim
+*.local.json
+token.json
+features.json
+qr-target.txt
+public-url.txt
+tunnel.json
+last-start.json
+cloudflared/
+
+# Python 缓存
+__pycache__/
+*.pyc
