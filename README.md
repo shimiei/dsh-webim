@@ -47,7 +47,9 @@ DeepSeek Harness（DSH）默认只监听 `127.0.0.1` 的随机端口，同一个
 </p>
 
 <p align="center">
-  <img src="docs/shots/settings-mobile.png" alt="手机上的设置页：单列布局，二维码与入口卡片" width="46%">
+  <img src="docs/shots/settings-mobile.png" alt="手机上的设置页：单列布局，二维码与入口卡片" width="24%">
+  <br>
+  <sub>手机端（390pt）：单列、入口卡片与二维码，扫码即进</sub>
 </p>
 
 ## 三种接入方式
