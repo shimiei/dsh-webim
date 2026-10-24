@@ -138,24 +138,9 @@ node bin/serve.mjs --host 0.0.0.0 --port 3081
 
 ## 工作原理
 
-```mermaid
-flowchart LR
-  subgraph outside["外面"]
-    P["手机 / 异地浏览器"]
-    T["Cloudflare quick tunnel"]
-  end
-  subgraph local["本机"]
-    G["dsh-webim 网关<br/>0.0.0.0:3081"]
-    H["DSH Web 载体<br/>127.0.0.1:随机端口"]
-    S["设置页 RPC /webim"]
-    C[".credentials.yaml"]
-  end
-  P -- "?token=… → 会话 Cookie" --> G
-  T -- "https" --> G
-  G -- "HTTP + WS Upgrade" --> H
-  S --> G
-  G -- "铸造 dsh-auth Cookie" --> C
-```
+<p align="center">
+  <img src="docs/arch.png" alt="请求路径：手机 → Cloudflare 隧道 → dsh-webim 网关 → 本机 Harness" width="100%">
+</p>
 
 几条关键设计：
 
@@ -174,7 +159,7 @@ client.js      设置页（React，走 DSH 的 slot 与设计 token）
 bin/serve.mjs  独立模式入口
 scripts/       安装 / 卸载
 tests/         81 个测试（安全、网关、token、插件、客户端契约、二维码、隧道）
-tools/         无依赖调试工具（CDP 探针、截图脱敏、banner 合成）
+tools/         无依赖调试工具（CDP 探针、截图脱敏、banner / 架构图合成）
 docs/          banner、图标、README 截图
 ```
 
@@ -192,6 +177,7 @@ node --test tests/*.test.mjs
 node tools/probe-remote.mjs <debug-port> <入口链接> out.png --eval-file tools/eval-ui-report.mjs
 node tools/make-shots.mjs    <debug-port> <入口链接> docs/shots   # 生成脱敏截图
 python tools/make-banner.py                                      # 重新合成 banner 与图标
+python tools/make-arch.py                                        # 重新绘制架构图
 ```
 
 改完代码要让它生效：`node scripts/install.mjs` 触发宿主热重载；只改 `cordis.patch.yml` 里的注释不算变化，得动一个值（例如 `sessionDays` 30 ↔ 31）。
