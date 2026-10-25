@@ -147,4 +147,25 @@ describe('phone layer', () => {
     // A standalone file browser page inherits the theme it was opened from.
     assert.match(bundle, /&theme=\$\{currentTheme\(\)\}/u)
   })
+
+  it('offers a fixed (named) tunnel next to the quick one', async () => {
+    const bundle = await read('client.js')
+    const host = await read('lib/index.js')
+    const tunnel = await read('lib/tunnel.js')
+
+    // Both halves know the endpoint, and the panel exposes the mode switch.
+    assert.ok(bundle.includes("'setTunnelNamed'"))
+    assert.ok(host.includes("endpoint === 'setTunnelNamed'"))
+    for (const key of ['tunnelModeQuick', 'tunnelModeNamed', 'tunnelHostLabel', 'tunnelTokenLabel', 'tunnelNamedHint']) {
+      assert.ok(bundle.includes(`${key}:`), `locale should define ${key}`)
+    }
+
+    // The token is a secret: its own file, and never echoed through status().
+    assert.match(tunnel, /tunnel-token\.txt/u)
+    assert.match(tunnel, /hasToken: this\.token !== ''/u)
+    assert.match(tunnel, /'--token'/u)
+    // A fixed tunnel is supervised and reconnects on its own.
+    assert.match(tunnel, /#scheduleRestart/u)
+    assert.match(tunnel, /Registered tunnel connection/u)
+  })
 })

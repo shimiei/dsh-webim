@@ -29,3 +29,8 @@ cloudflared/
 # Python 缓存
 __pycache__/
 *.pyc
+
+# 固定隧道：令牌只放本机状态目录
+tunnel-token.txt
+tunnel-named.json
+cloudflared.pid

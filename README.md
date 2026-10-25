@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-1.5.3-3b82f6?style=flat-square">
+  <img alt="version" src="https://img.shields.io/badge/version-1.6.0-3b82f6?style=flat-square">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-8b95a5?style=flat-square">
   <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A518-3b82f6?style=flat-square">
   <img alt="runtime deps" src="https://img.shields.io/badge/runtime%20deps-0-3b82f6?style=flat-square">
@@ -31,7 +31,8 @@ DeepSeek Harness（DSH）默认只监听 `127.0.0.1` 的随机端口，同一个
 | 扫码即进 | 设置页内联 SVG 二维码（自研编码器，无外部图片请求，绕开 CSP `img-src`），扫完直接落到 DSH |
 | 令牌可轮换 | 32 字节 base64url token，一次刷新即硬切：旧链接、旧二维码、已登录会话一起失效 |
 | 三种接入方式 | 仅局域网 / 公网直连（自己的 IP 或域名）/ Cloudflare 快速隧道；一次只开一种，也能让隧道与公网并存 |
-| 内置隧道 | 自动下载并拉起 `cloudflared` quick tunnel，几秒后拿到 `https://xxx.trycloudflare.com`，不用配端口映射 |
+| 内置隧道 | 自动下载并拉起 cloudflared quick tunnel，几秒后拿到 `https://xxx.trycloudflare.com`，不用配端口映射 |
+| 固定隧道 | 也可以跑自己的域名：填域名 + Zero Trust 令牌，域名永不变；令牌被拒会直接报错并停止重连，不会反复重启 |
 | 手机层 | 窄屏抽屉、输入框不再被键盘顶飞、设置页单列，`interactive-widget=resizes-content` |
 | 运行时开关 | 总开关 / 局域网 / 公网 / 移动端 / 隧道 / 文件查看 / 路径转链接 / 浮动入口，全都不用重启 |
 | 主题自适应 | 浅色/深色跟随 Harness 本身：浮标、面板、提示条、手机抽屉、文件浏览页全部同步，没有一块"深色孤岛" |
@@ -62,7 +63,7 @@ DeepSeek Harness（DSH）默认只监听 `127.0.0.1` 的随机端口，同一个
 | --- | --- | --- |
 | **仅局域网** | `{lan: true, public: false, tunnel: false}` | 只出 `http://<本机 IP>:3081/?token=…`，同一 Wi-Fi 可用，不暴露到公网 |
 | **公网直连** | `{lan: true, public: true, tunnel: false}` | 先列你保存的公网 IP / 域名（自己做端口映射或反代），再列局域网地址 |
-| **Cloudflare 隧道** | `{lan: true, public: false, tunnel: true}` | 启动后追加 `https://xxx.trycloudflare.com`；公网地址默认不参与，需要时勾卡片里的「同时列出公网直连地址」 |
+| **Cloudflare 隧道** | `{lan: true, public: false, tunnel: true}` | 卡片里再选<b>临时隧道</b>（https://xxx.trycloudflare.com，每次启动都变）或<b>固定隧道</b>（自己的域名，地址不变）；公网地址默认不参与，需要时勾「同时列出公网直连地址」 |
 
 三个开关各自独立，也各有含义：
 
@@ -126,6 +127,8 @@ node bin/serve.mjs --host 0.0.0.0 --port 3081
     logRequests: false
     tunnelBinary: ""          # 指定现成的 cloudflared；留空 = 用下面自动下载的那份
     tunnelAutoInstall: true   # false = 不自动下载 cloudflared
+    tunnelMode: "quick"       # "quick" = 临时隧道；"named" = 固定隧道（自己的域名）
+    tunnelHostname: ""        # 固定隧道的域名，如 dsh.example.com
     features:                 # 只提供首启默认值，运行时以 features.json 为准
       enabled: true
       lan: true
@@ -138,6 +141,23 @@ node bin/serve.mjs --host 0.0.0.0 --port 3081
 ```
 
 运行时状态都在 `$DSH_HOME/webim/`：`token.json`、`public-url.txt`、`qr-target.txt`、`features.json`、`tunnel.json`、`plugin.log`（插件日志，排障用）、`cloudflared/`。删掉对应文件即回到默认。
+
+固定隧道多两个文件：`tunnel-named.json`（域名 + 模式）和 `tunnel-token.txt`（连接令牌，权限 0600）。**令牌单独存文件、不进配置**，避免误贴进 issue 或提交到仓库；面板里只显示"已保存"，`status()` 也只回 `hasToken`。
+
+### 固定隧道怎么配
+
+1. Cloudflare Zero Trust → Networks → Tunnels → 创建（或选定）一条隧道，复制它的**连接令牌**；
+2. 在同一条隧道里加一条 **Public Hostname**：`dsh.你的域名.com` → `HTTP` → `127.0.0.1:3081`（这一步会顺带建好 CNAME，域名必须托管在同一个 Cloudflare 账号下）；
+3. 设置页 → 对外入口 → Cloudflare 隧道 → 切到**固定隧道**，填域名、粘贴令牌，保存。
+
+面板随后显示 `https://dsh.你的域名.com`，进程异常退出会按 2s → 4s → … → 30s 退避自动重连，最多 5 次；**令牌被 Cloudflare 拒绝（`Tunnel not found` / `Unauthorized`）时不再重试**，直接把原因写在面板上——这种错重连一万次也没用。
+
+命令行等价做法（需要 `cloudflared tunnel login` 生成的证书）：
+
+```bash
+cloudflared tunnel route dns <隧道ID> dsh.你的域名.com
+cloudflared tunnel run --token <令牌>
+```
 
 ## 工作原理
 
@@ -202,6 +222,8 @@ python tools/make-arch.py                                        # 重新绘制�
 | --- | --- |
 | 设置了但手机连不上 | 确认防火墙放行 TCP 3081；`Get-NetTCPConnection -LocalPort 3081` 应有监听；路由器/云主机安全组也要放行 |
 | 隧道一直起不来 | 首次要下 ~55 MB 的 `cloudflared`（看 `$DSH_HOME/webim/cloudflared/`）；企业网络挡 `github.com` / `*.trycloudflare.com` 时会失败；可用 `tunnelBinary` 指定现成二进制 |
+| 固定隧道报 `Tunnel not found` / `Unauthorized` | 令牌和隧道对不上：多半复制了别的隧道（或别的账号）的令牌，或这条隧道已被删除。回 Zero Trust → Networks → Tunnels → 该隧道 → 复制令牌，粘回面板保存 |
+| 固定隧道「运行中」但域名打不开 | 只配了令牌、没配 Public Hostname：同一隧道下加 `你的域名 → HTTP → 127.0.0.1:3081`（会顺带建 CNAME）。域名不在同一个 Cloudflare 账号时，CNAME 自己指到 `<隧道ID>.cfargotunnel.com` |
 | 点了隧道按钮没反应 | v1.5.1 起有转圈 + 计时 + 占位卡片；若 30 秒没域名，看 `$DSH_HOME/webim/plugin.log`（含 cloudflared 最后几行输出） |
 | 切换模式后页面卡一下 | 预期行为：重绑端口会打断当前页面连接，面板每 1.2 秒自动重连，3–5 秒恢复 |
 | 二维码扫出来不是我想的那个 | 二维码跟随**被点选**的卡片；点一下想要的那张，下方会写「扫码目标 · …」 |

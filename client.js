@@ -37,7 +37,7 @@ window.__ModuleLoader__.load({
       modePublic: '公网直连',
       modePublicHint: '用你自己的公网 IP 或域名（端口映射 / 反向代理），下面填地址。',
       modeTunnel: 'Cloudflare 隧道',
-      modeTunnelHint: '自动起一条 https 临时隧道，不用配端口映射；地址每次启动都会变。',
+      modeTunnelHint: '用 Cloudflare 隧道把本机 3081 映射到 https 公网，不用动路由器：可以要个随机域名（临时），也可以固定自己的域名。',
       lanAccess: '局域网可访问',
       lanAccessHint: '关掉后只监听 127.0.0.1，同网段设备连不上。',
       entriesTitle: '入口地址',
@@ -59,6 +59,14 @@ window.__ModuleLoader__.load({
       refreshHint: '刷新后，旧链接立即失效，已登录的浏览器也会被登出（需要重新扫码）。会话只对当时扫码的那台浏览器有效。',
       confirmRefresh: '刷新令牌？旧链接、旧二维码会立刻作废，已经登录的浏览器同样会退出，需要用新链接重新进入。',
       tunnelTitle: 'Cloudflare 临时隧道',
+      tunnelModeQuick: '临时隧道',
+      tunnelModeNamed: '固定隧道',
+      tunnelNamedHint: '固定隧道的地址不会再变。令牌在 Zero Trust → Networks → Tunnels 里复制；还要在那个隧道下加一条 Public Hostname：你的域名 → HTTP → 127.0.0.1:3081，否则域名解析不到。',
+      tunnelHostLabel: '域名',
+      tunnelTokenLabel: '连接令牌',
+      tunnelTokenKept: '已保存，留空表示不修改',
+      tunnelSavedNamed: '固定隧道已保存，进程正在重启。',
+      tunnelModeSwitch: '切换模式会重开隧道进程，当前临时地址立即失效。',
       tunnelOn: '运行中',
       tunnelOff: '未开启',
       tunnelStart: '开启隧道',
@@ -111,7 +119,7 @@ window.__ModuleLoader__.load({
       modePublic: 'Public address',
       modePublicHint: 'Use your own public IP or domain (port forwarding / reverse proxy); fill it in below.',
       modeTunnel: 'Cloudflare tunnel',
-      modeTunnelHint: 'Starts a temporary https tunnel automatically, no port forwarding needed; the address changes on every start.',
+      modeTunnelHint: 'Maps local port 3081 to https through Cloudflare, no router changes: either a random hostname (quick) or a fixed one of your own.',
       lanAccess: 'LAN reachable',
       lanAccessHint: 'Off keeps the listener on 127.0.0.1 only; other devices cannot connect.',
       entriesTitle: 'Entry links',
@@ -133,6 +141,14 @@ window.__ModuleLoader__.load({
       refreshHint: 'Refreshing invalidates every old link at once and signs out the browsers that used it. A session only works in the browser that scanned the code.',
       confirmRefresh: 'Refresh the token? Old links and QR codes stop working immediately, and browsers signed in through them are logged out; the new link is required.',
       tunnelTitle: 'Cloudflare quick tunnel',
+      tunnelModeQuick: 'Quick tunnel',
+      tunnelModeNamed: 'Fixed tunnel',
+      tunnelNamedHint: 'A fixed tunnel keeps one address forever. Copy the token from Zero Trust → Networks → Tunnels, and add a Public Hostname there (your domain → HTTP → 127.0.0.1:3081) or the name will not resolve.',
+      tunnelHostLabel: 'Hostname',
+      tunnelTokenLabel: 'Tunnel token',
+      tunnelTokenKept: 'already saved — leave empty to keep it',
+      tunnelSavedNamed: 'Fixed tunnel saved; the process is restarting.',
+      tunnelModeSwitch: 'Switching restarts the tunnel process and drops the current quick address.',
       tunnelOn: 'running',
       tunnelOff: 'off',
       tunnelStart: 'Start tunnel',
@@ -346,6 +362,9 @@ window.__ModuleLoader__.load({
       const [publicTouched, setPublicTouched] = React.useState(false)
       const [tunnelElapsed, setTunnelElapsed] = React.useState(0)
       const [tunnelPending, setTunnelPending] = React.useState(false)
+      const [namedHost, setNamedHost] = React.useState('')
+      const [namedToken, setNamedToken] = React.useState('')
+      const [namedTouched, setNamedTouched] = React.useState(false)
       const watchingRef = React.useRef(false)
       const cancelWatchRef = React.useRef(false)
 
@@ -380,6 +399,28 @@ window.__ModuleLoader__.load({
         if (!info || publicTouched) return
         setPublicInput(info.publicAddress?.saved || '')
       }, [info, publicTouched])
+
+      React.useEffect(() => {
+        if (!info || namedTouched) return
+        setNamedHost(info.tunnel?.hostname || '')
+      }, [info, namedTouched])
+
+      /** Save the fixed-tunnel settings and let the host restart the process. */
+      async function saveNamed(mode) {
+        const wanted = mode === 'named' ? 'named' : 'quick'
+        if (wanted === 'named' && namedHost.trim() === '' && !(info?.tunnel?.hostname)) {
+          setError(t('tunnelNamedHint'))
+          return
+        }
+        setNamedTouched(false)
+        await run('named', 'setTunnelNamed', {
+          mode: wanted,
+          hostname: namedHost.trim(),
+          token: namedToken.trim(),
+        })
+        setNamedToken('')
+        setMessage(wanted === 'named' ? t('tunnelSavedNamed') : t('saved'))
+      }
 
       /** Turn a thrown RPC failure into a message that names the real cause. */
       function describeFailure(failure) {
@@ -729,6 +770,57 @@ window.__ModuleLoader__.load({
                       }, copiedId === 'tunnel' ? t('copied') : t('copy')),
                     )
                     : null,
+                  h('div', { className: 'wb-seg wb-seg-sm', role: 'group', 'aria-label': t('tunnelTitle') },
+                    h('button', {
+                      type: 'button',
+                      className: `wb-seg-item${tunnelState.mode === 'named' ? '' : ' on'}`,
+                      disabled: busy !== '',
+                      onClick: () => void saveNamed('quick'),
+                    }, t('tunnelModeQuick')),
+                    h('button', {
+                      type: 'button',
+                      className: `wb-seg-item${tunnelState.mode === 'named' ? ' on' : ''}`,
+                      disabled: busy !== '',
+                      onClick: () => void saveNamed('named'),
+                    }, t('tunnelModeNamed')),
+                  ),
+                  tunnelState.mode === 'named' ? h('div', { className: 'wb-field' },
+                    h('label', { htmlFor: 'wb-tunnel-host' }, t('tunnelHostLabel')),
+                    h('div', { className: 'wb-actions' },
+                      h('input', {
+                        id: 'wb-tunnel-host',
+                        className: 'wb-input wb-grow',
+                        value: namedHost,
+                        placeholder: 'dsh.example.com',
+                        spellCheck: false,
+                        onChange: (event) => {
+                          setNamedTouched(true)
+                          setNamedHost(event.target.value)
+                        },
+                      }),
+                    ),
+                    h('label', { htmlFor: 'wb-tunnel-token' }, t('tunnelTokenLabel')),
+                    h('div', { className: 'wb-actions' },
+                      h('input', {
+                        id: 'wb-tunnel-token',
+                        className: 'wb-input wb-grow',
+                        type: 'password',
+                        value: namedToken,
+                        autoComplete: 'off',
+                        placeholder: tunnelState.hasToken ? t('tunnelTokenKept') : 'eyJhIjoi…',
+                        spellCheck: false,
+                        onChange: (event) => {
+                          setNamedTouched(true)
+                          setNamedToken(event.target.value)
+                        },
+                        onKeyDown: (event) => {
+                          if (event.key === 'Enter') void saveNamed('named')
+                        },
+                      }),
+                      h('button', { type: 'button', className: 'wb-btn primary', disabled: busy !== '', onClick: () => void saveNamed('named') }, t('save')),
+                    ),
+                    h('p', { className: 'wb-note' }, t('tunnelNamedHint')),
+                  ) : null,
                   tunnelState.error ? h('p', { className: 'wb-err' }, `${t('tunnelFailed')}：${tunnelState.error}`) : null,
                   h('label', { className: `wb-tg${publicOn ? ' on' : ''} wb-bar-text` },
                     h('input', {
@@ -741,7 +833,7 @@ window.__ModuleLoader__.load({
                     h('span', null, t('tunnelAlsoPublic')),
                   ),
                   h('p', { className: 'wb-note' }, t('tunnelAlsoPublicHint')),
-                  h('p', { className: 'wb-note' }, t('tunnelHint')),
+                  tunnelState.mode === 'named' ? null : h('p', { className: 'wb-note' }, t('tunnelHint')),
                 ) : null,
               ),
               h('hr', { className: 'wb-divider' }),
