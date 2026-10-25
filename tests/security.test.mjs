@@ -105,3 +105,20 @@ test('config normalization keeps good values and falls back for bad ones', () =>
 test('session cookie digest is stable', () => {
   assert.equal(passwordDigest('124'), createHash('sha256').update('124').digest('hex'))
 })
+test('sessions are pinned to the browser that created them', () => {
+  const store = new SessionStore(config, Buffer.alloc(32, 7))
+  const phone = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Safari/604.1'
+  const laptop = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0'
+  const cookie = store.issue(Date.now(), phone)
+  assert.ok(store.verify(cookie, Date.now(), phone), 'the same browser keeps its session')
+  assert.equal(store.verify(cookie, Date.now(), laptop), null, 'a copied cookie is worthless elsewhere')
+  assert.equal(store.verify(cookie, Date.now(), ''), null, 'a request without a UA cannot replay it')
+  assert.ok(store.readFromCookieHeader(`${store.cookieName}=${cookie}`, Date.now(), phone))
+  assert.equal(store.readFromCookieHeader(`${store.cookieName}=${cookie}`, Date.now(), laptop), null)
+})
+
+test('sessionBind: off restores the unpinned behaviour', () => {
+  const loose = new SessionStore(normalizeConfig({ ...config, sessionBind: 'off' }), Buffer.alloc(32, 7))
+  const cookie = loose.issue(Date.now(), 'first-browser')
+  assert.ok(loose.verify(cookie, Date.now(), 'another-browser'))
+})

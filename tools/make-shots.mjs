@@ -77,6 +77,9 @@ const call = (method, params) => send(method, params, sessionId)
 
 await call('Page.enable')
 await call('Runtime.enable')
+// DSH follows the OS theme, and a headless browser reports "light". Pin the
+// captures to the dark palette the panel is designed against.
+await call('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] })
 await call('Emulation.setDeviceMetricsOverride', {
   width: 1360, height: 940, deviceScaleFactor: 2, mobile: false,
 })

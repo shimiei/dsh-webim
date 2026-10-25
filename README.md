@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-1.5.1-3b82f6?style=flat-square">
+  <img alt="version" src="https://img.shields.io/badge/version-1.5.2-3b82f6?style=flat-square">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-8b95a5?style=flat-square">
   <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A518-3b82f6?style=flat-square">
   <img alt="runtime deps" src="https://img.shields.io/badge/runtime%20deps-0-3b82f6?style=flat-square">
@@ -34,7 +34,7 @@ DeepSeek Harness（DSH）默认只监听 `127.0.0.1` 的随机端口，同一个
 | 内置隧道 | 自动下载并拉起 `cloudflared` quick tunnel，几秒后拿到 `https://xxx.trycloudflare.com`，不用配端口映射 |
 | 手机层 | 窄屏抽屉、输入框不再被键盘顶飞、设置页单列，`interactive-widget=resizes-content` |
 | 运行时开关 | 总开关 / 局域网 / 公网 / 移动端 / 隧道 / 文件查看 / 路径转链接 / 浮动入口，全都不用重启 |
-| 远程安全 | 令牌门 + 失败限流与封禁 + 上游 Cookie 由本机 `.credentials.yaml` 铸造，凭据不出机器 |
+| 远程安全 | 令牌门 + 会话绑定浏览器 + 失败限流与封禁 + 上游 Cookie 由本机 `.credentials.yaml` 铸造，凭据不出机器 |
 | 零依赖 | 只用 Node 标准库：QR 编码器、PNG 编码器、代理、二维码都是自己写的 |
 
 ## 截图
@@ -114,6 +114,7 @@ node bin/serve.mjs --host 0.0.0.0 --port 3081
     accessToken: ""           # 固定 token；留空 = 自动生成，可在设置页刷新
     publicUrl: ""             # 公网 IP / 域名（含端口），如 http://1.2.3.4:3081
     sessionDays: 30
+    sessionBind: 'ua'        # 'ua' = 会话只对扫码那台浏览器有效；'off' = 拿到 cookie 就能进
     maxFailures: 8            # 同一 IP 失败多少次锁定
     failureWindowMinutes: 10
     blockMinutes: 15
@@ -158,7 +159,7 @@ assets/        注入到 DSH 前端的小补丁（移动端抽屉、状态胶囊
 client.js      设置页（React，走 DSH 的 slot 与设计 token）
 bin/serve.mjs  独立模式入口
 scripts/       安装 / 卸载
-tests/         81 个测试（安全、网关、token、插件、客户端契约、二维码、隧道）
+tests/         84 个测试（安全、网关、token、插件、客户端契约、二维码、隧道）
 tools/         无依赖调试工具（CDP 探针、截图脱敏、banner / 架构图合成）
 docs/          banner、图标、README 截图
 ```
@@ -169,7 +170,7 @@ docs/          banner、图标、README 截图
 node --test tests/*.test.mjs
 ```
 
-当前 **81 个用例全部通过**（约 1.5 秒）：安全 8、网关 14、token-only 6、token 10、host 插件 7、client 契约 11、二维码 11、功能开关 4、隧道 5、入口地址过滤 1。
+当前 **84 个用例全部通过**（约 1.6 秒）：安全 10、网关 15、token-only 6、token 10、host 插件 7、client 契约 11、二维码 11、功能开关 4、隧道 5、入口地址过滤 1。
 
 界面另有几个零依赖探针（需先手动起 headless Edge 并打开调试端口）：
 
@@ -189,8 +190,9 @@ python tools/make-arch.py                                        # 重新绘制�
 1. **别用弱口令**：口令门默认关闭，走 token；要开口令就给个像样的。
 2. **公网优先用 HTTPS**：`Cloudflare 隧道` 天然 https；自己做端口映射时建议反代加证书，并透传 `X-Forwarded-Proto: https`（网关据此给 Cookie 加 `Secure`）。
 3. **令牌会随刷新硬切**：刷新后旧链接、旧二维码、已登录浏览器全部失效，这是设计。
-4. **文件查看有白名单**：默认拒绝 `$DSH_HOME` 里的凭据与状态目录，可用 `allowedRoots` / `deniedPaths` 收紧。
-5. **不用就关总开关**：3081 会真的停掉，隧道一起停。
+4. **会话绑定浏览器**：cookie 里带 User-Agent 指纹（`sessionBind: 'ua'`，默认），换设备/换浏览器复制 cookie 一律 401；手机在 Wi-Fi 与蜂窝间切换不受影响。想回到"拿到 cookie 就能进"的老行为，把它设成 `'off'`。
+5. **文件查看有白名单**：默认拒绝 `$DSH_HOME` 里的凭据与状态目录，可用 `allowedRoots` / `deniedPaths` 收紧。
+6. **不用就关总开关**：3081 会真的停掉，隧道一起停。
 
 ## 常见问题
 

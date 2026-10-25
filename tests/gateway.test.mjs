@@ -54,6 +54,10 @@ function listen(server) {
   return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server.address())))
 }
 
+// Sessions are pinned to a User-Agent, so every request in these tests has to
+// carry the same one — including the raw WebSocket upgrade, which bypasses fetch.
+const TEST_UA = 'dsh-webim-test/1.0'
+
 function rawUpgrade(port, cookie) {
   return new Promise((resolve, reject) => {
     const socket = net.connect(port, '127.0.0.1', () => {
@@ -64,6 +68,7 @@ function rawUpgrade(port, cookie) {
         'Connection: Upgrade',
         'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==',
         'Sec-WebSocket-Version: 13',
+        `User-Agent: ${TEST_UA}`,
       ]
       if (cookie) lines.push(`Cookie: ${cookie}`)
       socket.write(`${lines.join('\r\n')}\r\n\r\n`)
@@ -102,7 +107,7 @@ async function login(port, password, next = '/') {
   const response = await fetch(`http://127.0.0.1:${port}/__webim/login`, {
     method: 'POST',
     redirect: 'manual',
-    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    headers: { 'content-type': 'application/x-www-form-urlencoded', 'user-agent': TEST_UA },
     body: new URLSearchParams({ password, next }).toString(),
   })
   const setCookies = response.headers.getSetCookie?.() ?? []
@@ -182,7 +187,7 @@ describe('dsh-webim gateway', () => {
   })
 
   it('serves the real Harness HTML with only the webim add-on injected', async () => {
-    const response = await fetch(`http://127.0.0.1:${port}/`, { headers: { cookie }, redirect: 'manual' })
+    const response = await fetch(`http://127.0.0.1:${port}/`, { headers: { cookie, 'user-agent': TEST_UA }, redirect: 'manual' })
     assert.equal(response.status, 200)
     const html = await response.text()
     assert.match(html, /hello-harness/u)
@@ -197,7 +202,7 @@ describe('dsh-webim gateway', () => {
   it('proxies API requests with the upstream origin and body', async () => {
     const response = await fetch(`http://127.0.0.1:${port}/api/echo?q=1`, {
       method: 'POST',
-      headers: { cookie, 'content-type': 'application/json', origin: `http://127.0.0.1:${port}` },
+      headers: { cookie, 'user-agent': TEST_UA, 'content-type': 'application/json', origin: `http://127.0.0.1:${port}` },
       body: '{"hello":"remote"}',
     })
     assert.equal(response.status, 200)
@@ -211,7 +216,7 @@ describe('dsh-webim gateway', () => {
   })
 
   it('rewrites absolute upstream redirects to gateway-relative paths', async () => {
-    const response = await fetch(`http://127.0.0.1:${port}/api/redirect`, { headers: { cookie }, redirect: 'manual' })
+    const response = await fetch(`http://127.0.0.1:${port}/api/redirect`, { headers: { cookie, 'user-agent': TEST_UA }, redirect: 'manual' })
     assert.equal(response.status, 302)
     assert.equal(response.headers.get('location'), '/next')
   })
@@ -236,9 +241,24 @@ describe('dsh-webim gateway', () => {
     authorized.socket.destroy()
   })
 
+it('rejects a valid cookie replayed from a different browser', async () => {
+    const same = await fetch(`http://127.0.0.1:${port}/__webim/api/status`, {
+      headers: { cookie, 'user-agent': TEST_UA },
+    })
+    assert.equal(same.status, 200)
+
+    const other = await fetch(`http://127.0.0.1:${port}/__webim/api/status`, {
+      headers: { cookie, 'user-agent': 'Mozilla/5.0 (some other device)' },
+    })
+    assert.equal(other.status, 401)
+
+    const anonymous = await fetch(`http://127.0.0.1:${port}/__webim/api/status`, { headers: { cookie } })
+    assert.equal(anonymous.status, 401)
+  })
+
   it('lists directories and streams files through /__webim/fs', async () => {
     const list = await fetch(`http://127.0.0.1:${port}/__webim/fs?path=${encodeURIComponent(fsRoot)}&format=json`, {
-      headers: { cookie },
+      headers: { cookie, 'user-agent': TEST_UA },
     })
     assert.equal(list.status, 200)
     const payload = await list.json()
@@ -246,30 +266,30 @@ describe('dsh-webim gateway', () => {
     assert.deepEqual(payload.entries.map((entry) => entry.name), ['sub', 'hello.txt'])
 
     const file = await fetch(`http://127.0.0.1:${port}/__webim/fs?path=${encodeURIComponent(join(fsRoot, 'hello.txt'))}`, {
-      headers: { cookie },
+      headers: { cookie, 'user-agent': TEST_UA },
     })
     assert.equal(file.status, 200)
     assert.equal(file.headers.get('content-type'), 'text/plain; charset=utf-8')
     assert.equal(await file.text(), 'hello world payload')
 
     const range = await fetch(`http://127.0.0.1:${port}/__webim/fs?path=${encodeURIComponent(join(fsRoot, 'hello.txt'))}`, {
-      headers: { cookie, range: 'bytes=0-4' },
+      headers: { cookie, 'user-agent': TEST_UA, range: 'bytes=0-4' },
     })
     assert.equal(range.status, 206)
     assert.equal(await range.text(), 'hello')
   })
 
   it('refuses relative paths, out-of-root paths, and gateway state', async () => {
-    const relative = await fetch(`http://127.0.0.1:${port}/__webim/fs?path=hello.txt`, { headers: { cookie } })
+    const relative = await fetch(`http://127.0.0.1:${port}/__webim/fs?path=hello.txt`, { headers: { cookie, 'user-agent': TEST_UA } })
     assert.equal(relative.status, 400)
 
     const outside = await fetch(`http://127.0.0.1:${port}/__webim/fs?path=${encodeURIComponent(tmpdir())}`, {
-      headers: { cookie },
+      headers: { cookie, 'user-agent': TEST_UA },
     })
     assert.equal(outside.status, 403)
 
     const state = await fetch(`http://127.0.0.1:${port}/__webim/fs?path=${encodeURIComponent(stateDir)}`, {
-      headers: { cookie },
+      headers: { cookie, 'user-agent': TEST_UA },
     })
     assert.equal(state.status, 403)
   })
@@ -284,7 +304,7 @@ describe('dsh-webim gateway', () => {
   })
 
   it('reports status with warnings for the default weak password', async () => {
-    const response = await fetch(`http://127.0.0.1:${port}/__webim/api/status`, { headers: { cookie } })
+    const response = await fetch(`http://127.0.0.1:${port}/__webim/api/status`, { headers: { cookie, 'user-agent': TEST_UA } })
     assert.equal(response.status, 200)
     const status = await response.json()
     assert.equal(status.ok, true)
@@ -303,7 +323,7 @@ describe('dsh-webim gateway', () => {
     assert.equal(result.headers.get('location'), '/__webim/login')
     assert.match(result.headers.getSetCookie()[0], /Max-Age=0/u)
     // The stateless token itself remains valid; clearing is the browser's job.
-    const still = await fetch(`http://127.0.0.1:${port}/__webim/api/status`, { headers: { cookie } })
+    const still = await fetch(`http://127.0.0.1:${port}/__webim/api/status`, { headers: { cookie, 'user-agent': TEST_UA } })
     assert.equal(still.status, 200)
   })
 

@@ -28,6 +28,9 @@
         accessToken: ''
         # 登录状态保持天数
         sessionDays: 30
+        # 会话绑定：'ua' = 只对当时扫码的那台浏览器有效（默认），
+        # 'off' = 旧行为，任何拿到 cookie 的客户端都能进
+        sessionBind: 'ua'
         # 失败锁定：10 分钟内失败 8 次，锁定 15 分钟
         maxFailures: 8
         failureWindowMinutes: 10

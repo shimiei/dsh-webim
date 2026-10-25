@@ -6,6 +6,8 @@ as Markdown, so this image only needs to look like the project at a glance.
 
 from __future__ import annotations
 
+import json
+
 import math
 from pathlib import Path
 
@@ -14,6 +16,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 ICON = ROOT / "dsh-image-gen" / "image-016095e5.png"
+VERSION = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
 
 W, H = 1280, 340
 BG = (11, 11, 13)
@@ -114,7 +117,7 @@ def main() -> None:
     # Chips: version + license, sized to their text so the row stays balanced.
     chip_y = 250
     chip_x = x + 2
-    for label, color in (("v1.5.1", ACCENT), ("MIT", MUTED), ("零依赖插件", MUTED)):
+    for label, color in ((f"v{VERSION}", ACCENT), ("MIT", MUTED), ("零依赖插件", MUTED)):
         tw = draw.textbbox((0, 0), label, font=chip_font)[2]
         pad = 14
         box = [chip_x, chip_y, chip_x + tw + pad * 2, chip_y + 34]
