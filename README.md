@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-1.5.2-3b82f6?style=flat-square">
+  <img alt="version" src="https://img.shields.io/badge/version-1.5.3-3b82f6?style=flat-square">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-8b95a5?style=flat-square">
   <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A518-3b82f6?style=flat-square">
   <img alt="runtime deps" src="https://img.shields.io/badge/runtime%20deps-0-3b82f6?style=flat-square">
@@ -34,6 +34,7 @@ DeepSeek Harness（DSH）默认只监听 `127.0.0.1` 的随机端口，同一个
 | 内置隧道 | 自动下载并拉起 `cloudflared` quick tunnel，几秒后拿到 `https://xxx.trycloudflare.com`，不用配端口映射 |
 | 手机层 | 窄屏抽屉、输入框不再被键盘顶飞、设置页单列，`interactive-widget=resizes-content` |
 | 运行时开关 | 总开关 / 局域网 / 公网 / 移动端 / 隧道 / 文件查看 / 路径转链接 / 浮动入口，全都不用重启 |
+| 主题自适应 | 浅色/深色跟随 Harness 本身：浮标、面板、提示条、手机抽屉、文件浏览页全部同步，没有一块"深色孤岛" |
 | 远程安全 | 令牌门 + 会话绑定浏览器 + 失败限流与封禁 + 上游 Cookie 由本机 `.credentials.yaml` 铸造，凭据不出机器 |
 | 零依赖 | 只用 Node 标准库：QR 编码器、PNG 编码器、代理、二维码都是自己写的 |
 
@@ -48,8 +49,9 @@ DeepSeek Harness（DSH）默认只监听 `127.0.0.1` 的随机端口，同一个
 
 <p align="center">
   <img src="docs/shots/settings-mobile.png" alt="手机上的设置页：单列布局，二维码与入口卡片" width="24%">
+  <img src="docs/shots/settings-light.png" alt="浅色主题下的同一块面板" width="24%">
   <br>
-  <sub>手机端（390pt）：单列、入口卡片与二维码，扫码即进</sub>
+  <sub>手机端（390pt）：单列、入口卡片与二维码，扫码即进 · 右为浅色主题</sub>
 </p>
 
 ## 三种接入方式
@@ -159,7 +161,7 @@ assets/        注入到 DSH 前端的小补丁（移动端抽屉、状态胶囊
 client.js      设置页（React，走 DSH 的 slot 与设计 token）
 bin/serve.mjs  独立模式入口
 scripts/       安装 / 卸载
-tests/         84 个测试（安全、网关、token、插件、客户端契约、二维码、隧道）
+tests/         86 个测试（安全、网关、token、插件、客户端契约、二维码、隧道）
 tools/         无依赖调试工具（CDP 探针、截图脱敏、banner / 架构图合成）
 docs/          banner、图标、README 截图
 ```
@@ -170,7 +172,7 @@ docs/          banner、图标、README 截图
 node --test tests/*.test.mjs
 ```
 
-当前 **84 个用例全部通过**（约 1.6 秒）：安全 10、网关 15、token-only 6、token 10、host 插件 7、client 契约 11、二维码 11、功能开关 4、隧道 5、入口地址过滤 1。
+当前 **86 个用例全部通过**（约 1.7 秒）：安全 10、网关 16、token-only 6、token 10、host 插件 7、client 契约 12、二维码 11、功能开关 4、隧道 5、入口地址过滤 1。
 
 界面另有几个零依赖探针（需先手动起 headless Edge 并打开调试端口）：
 

@@ -15,7 +15,41 @@
   const BASE = '/__webim'
   const state = { status: null, features: null, mobile: null, linkifying: false, observer: null }
 
-  const fsUrl = (localPath) => `${BASE}/fs?path=${encodeURIComponent(localPath)}`
+  // `theme` keeps the standalone file-browser page on the same palette as the
+  // shell it was opened from, instead of following the operating system.
+  const fsUrl = (localPath) => `${BASE}/fs?path=${encodeURIComponent(localPath)}&theme=${currentTheme()}`
+
+  // ---- theme ---------------------------------------------------------------
+  // The Harness owns the light/dark choice and publishes it as `color-scheme`
+  // on <html>. A shadow root does not inherit that, so the value is mirrored
+  // onto an attribute that both this stylesheet and the shadow markup key on.
+  // Without it the floating pill stayed dark inside a light app.
+  function currentTheme() {
+    const scheme = getComputedStyle(document.documentElement).colorScheme || ''
+    if (/dark/iu.test(scheme)) return 'dark'
+    if (/light/iu.test(scheme)) return 'light'
+    const media = window.matchMedia?.('(prefers-color-scheme: dark)')
+    return media?.matches ? 'dark' : 'light'
+  }
+
+  function syncTheme() {
+    const theme = currentTheme()
+    if (document.documentElement.dataset.webimTheme !== theme) {
+      document.documentElement.dataset.webimTheme = theme
+    }
+    const host = document.getElementById('dsh-webim-entry')
+    if (host && host.dataset.theme !== theme) host.dataset.theme = theme
+  }
+
+  function watchTheme() {
+    syncTheme()
+    const observer = new MutationObserver(syncTheme)
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['style', 'class', 'data-ds-theme', 'data-ds-theme-source'],
+    })
+    window.matchMedia?.('(prefers-color-scheme: dark)')?.addEventListener?.('change', syncTheme)
+  }
 
   function toast(message) {
     let el = document.querySelector('.dsh-webim-toast')
@@ -221,37 +255,53 @@
     root.innerHTML = `
       <style>
         :host { all: initial; }
+        /* Light is the default; :host([data-theme="dark"]) flips the palette.
+           Every colour below goes through a variable so the pill never ends up
+           dark-on-dark or light-on-light. */
         .wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
-          font: 12px/1.4 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+          font: 12px/1.4 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+          --pill-bg: rgba(255, 255, 255, .9); --pill-fg: #1f2126; --pill-ring: rgba(16, 24, 40, .1);
+          --pill-name-hover: #3350e6; --pill-shadow: 0 8px 24px rgba(16, 24, 40, .16), 0 1px 3px rgba(16, 24, 40, .1);
+          --btn-bg: rgba(16, 24, 40, .06); --btn-fg: #2c2f36;
+          --panel-bg: rgba(255, 255, 255, .97); --panel-fg: #1b1d22;
+          --muted-fg: #64707f; --warn-bg: rgba(217, 119, 6, .12); --warn-fg: #92400e;
+          --panel-shadow: 0 16px 40px rgba(16, 24, 40, .18), 0 2px 6px rgba(16, 24, 40, .08); }
+        :host([data-theme="dark"]) .wrap {
+          --pill-bg: rgba(23, 24, 28, .9); --pill-fg: #f2f3f5; --pill-ring: rgba(255, 255, 255, .08);
+          --pill-name-hover: #9db2ff; --pill-shadow: 0 8px 24px rgba(0, 0, 0, .28), 0 1px 3px rgba(0, 0, 0, .3);
+          --btn-bg: rgba(255, 255, 255, .07); --btn-fg: #dfe3ec;
+          --panel-bg: rgba(23, 24, 28, .96); --panel-fg: #e9ebf0;
+          --muted-fg: #9aa0aa; --warn-bg: rgba(255, 159, 10, .14); --warn-fg: #ffcf8a;
+          --panel-shadow: 0 16px 40px rgba(0, 0, 0, .36), 0 1px 3px rgba(0, 0, 0, .4); }
         .pill { display: flex; align-items: center; gap: 2px; padding: 4px 5px 4px 9px;
-          border-radius: 999px; background: rgba(23, 24, 28, .9); color: #f2f3f5;
-          box-shadow: 0 8px 24px rgba(0, 0, 0, .28), inset 0 0 0 1px rgba(255, 255, 255, .08);
+          border-radius: 999px; background: var(--pill-bg); color: var(--pill-fg);
+          box-shadow: var(--pill-shadow), inset 0 0 0 1px var(--pill-ring);
           backdrop-filter: blur(8px); opacity: .82; transition: opacity .15s ease; user-select: none; }
         .pill:hover { opacity: 1; }
         .dot { width: 7px; height: 7px; border-radius: 50%; background: #8b8f98; margin-right: 2px; flex: none; }
         .dot.ok { background: #34c759; box-shadow: 0 0 6px rgba(52, 199, 89, .7); }
         .dot.bad { background: #ff453a; }
         .name { font-weight: 600; letter-spacing: .2px; cursor: pointer; padding: 2px 4px; }
-        .name:hover { color: #9db2ff; }
+        .name:hover { color: var(--pill-name-hover); }
         .btn { border: 0; border-radius: 999px; padding: 4px 9px; margin-left: 2px; cursor: pointer;
-          font: inherit; color: #dfe3ec; background: rgba(255, 255, 255, .07); }
+          font: inherit; color: var(--btn-fg); background: var(--btn-bg); }
         .btn:hover { background: rgba(77, 107, 254, .35); color: #fff; }
         .btn.quit:hover { background: rgba(255, 69, 58, .32); }
         .panel { display: none; width: 264px; padding: 12px 13px; border-radius: 12px;
-          background: rgba(23, 24, 28, .96); color: #e9ebf0;
-          box-shadow: 0 16px 40px rgba(0, 0, 0, .36), inset 0 0 0 1px rgba(255, 255, 255, .08);
+          background: var(--panel-bg); color: var(--panel-fg);
+          box-shadow: var(--panel-shadow), inset 0 0 0 1px var(--pill-ring);
           backdrop-filter: blur(10px); }
         .panel.show { display: block; }
         .title { font-weight: 600; font-size: 12.5px; margin-bottom: 6px; display: flex; justify-content: space-between; }
-        .muted { color: #9aa0aa; }
+        .muted { color: var(--muted-fg); }
         .row { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; }
         .row span:last-child { text-align: right; word-break: break-all; }
-        .warn { margin-top: 8px; padding: 7px 8px; border-radius: 8px; background: rgba(255, 159, 10, .14);
-          color: #ffcf8a; font-size: 11px; line-height: 1.45; }
+        .warn { margin-top: 8px; padding: 7px 8px; border-radius: 8px; background: var(--warn-bg);
+          color: var(--warn-fg); font-size: 11px; line-height: 1.45; }
         .actions { display: flex; gap: 6px; margin-top: 10px; }
         .actions button { flex: 1; border: 0; border-radius: 8px; padding: 7px 8px; cursor: pointer;
-          font: inherit; color: #f2f3f5; background: rgba(255, 255, 255, .1); }
-        .actions button:hover { background: rgba(77, 107, 254, .45); }
+          font: inherit; color: var(--panel-fg); background: var(--btn-bg); }
+        .actions button:hover { background: rgba(77, 107, 254, .45); color: #fff; }
         .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; }
       </style>
       <div class="wrap">
@@ -274,6 +324,7 @@
       </div>
     `
 
+    if (document.documentElement.dataset.webimTheme) host.dataset.theme = document.documentElement.dataset.webimTheme
     const panel = root.querySelector('.panel')
     const dot = root.querySelector('[data-dot]')
 
@@ -548,6 +599,7 @@
     state.features = status?.features ?? null
     if (state.features && state.features.mobileUi !== false) createMobileUi()
     if (!state.features || state.features.pill !== false) createPill()
+    watchTheme()
     if (!state.features || state.features.linkifyPaths !== false) startLinkify()
   }
 

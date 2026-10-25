@@ -7,6 +7,8 @@ const port = Number(process.argv[2] ?? 9223)
 const url = process.argv[3]
 const shot = process.argv[4] ?? 'artifacts/probe.png'
 const dismiss = process.argv.includes('--dismiss')
+const mediaIndex = process.argv.indexOf('--media')
+const media = mediaIndex === -1 ? null : (process.argv[mediaIndex + 1] ?? null)
 const evalIndex = process.argv.indexOf('--eval')
 const evalFileIndex = process.argv.indexOf('--eval-file')
 const evalScript = evalFileIndex !== -1
@@ -61,6 +63,18 @@ await s('Runtime.enable')
 await s('Log.enable')
 await s('Network.enable')
 await s('Page.enable')
+const sizeIndex = process.argv.indexOf('--size')
+const size = sizeIndex === -1 ? null : (process.argv[sizeIndex + 1] ?? null)
+const dprIndex = process.argv.indexOf('--dpr')
+const dpr = dprIndex === -1 ? 1 : Number(process.argv[dprIndex + 1] ?? 1)
+if (size) {
+  const [width, height] = size.split('x').map(Number)
+  await s('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: dpr, mobile: true })
+  await s('Emulation.setTouchEmulationEnabled', { enabled: true })
+}
+if (media) {
+  await s('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: media }] })
+}
 await s('Page.navigate', { url })
 
 await new Promise((resolve) => setTimeout(resolve, 12000))

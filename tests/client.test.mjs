@@ -123,4 +123,28 @@ describe('phone layer', () => {
     assert.match(css, /\[role="dialog"\] > nav/u)
     assert.match(css, /font-size: 16px/u)
   })
+
+  it('follows the shell theme instead of hard-coding a dark palette', async () => {
+    const bundle = await read('assets/client.js')
+    const css = await read('assets/client.css')
+
+    // The pill reads the shell's own `color-scheme`, mirrors it onto an
+    // attribute, and keeps watching in case the user flips the theme.
+    assert.match(bundle, /getComputedStyle\(document\.documentElement\)\.colorScheme/u)
+    assert.match(bundle, /dataset\.webimTheme = theme/u)
+    assert.match(bundle, /host\.dataset\.theme = theme/u)
+    assert.match(bundle, /new MutationObserver\(syncTheme\)/u)
+    assert.match(bundle, /:host\(\[data-theme="dark"\]\) \.wrap/u)
+
+    // Every surface colour goes through a variable, so the light block can
+    // override it; the document stylesheet needs a dark block of its own.
+    for (const name of ['--pill-bg', '--pill-fg', '--panel-bg', '--panel-fg', '--muted-fg']) {
+      assert.ok(bundle.includes(`var(${name})`), `pill should style with ${name}`)
+    }
+    assert.match(css, /:root \{[\s\S]*--webim-toast-bg/u)
+    assert.match(css, /:root\[data-webim-theme="dark"\]/u)
+
+    // A standalone file browser page inherits the theme it was opened from.
+    assert.match(bundle, /&theme=\$\{currentTheme\(\)\}/u)
+  })
 })

@@ -279,8 +279,27 @@ it('rejects a valid cookie replayed from a different browser', async () => {
     assert.equal(await range.text(), 'hello')
   })
 
-  it('refuses relative paths, out-of-root paths, and gateway state', async () => {
-    const relative = await fetch(`http://127.0.0.1:${port}/__webim/fs?path=hello.txt`, { headers: { cookie, 'user-agent': TEST_UA } })
+  it('renders the file browser in the theme the shell asked for', async () => {
+    const url = (extra) => `http://127.0.0.1:${port}/__webim/fs?path=${encodeURIComponent(fsRoot)}${extra}`
+    const get = (extra) => fetch(url(extra), { headers: { cookie, 'user-agent': TEST_UA } })
+
+    const lightHtml = await (await get('&theme=light')).text()
+    assert.match(lightHtml, /<html lang="zh-CN" data-theme="light">/u)
+    assert.match(lightHtml, /--fb-bg:#f6f7f9/u)
+    // Navigation keeps the theme for every link on the page.
+    assert.match(lightHtml, /&amp;theme=light|&theme=light/u)
+
+    const darkHtml = await (await get('&theme=dark')).text()
+    assert.match(darkHtml, /<html lang="zh-CN" data-theme="dark">/u)
+    assert.match(darkHtml, /--fb-bg:#151517/u)
+
+    // No parameter: the page is left to the operating system.
+    const plainHtml = await (await get('')).text()
+    assert.match(plainHtml, /<html lang="zh-CN"><head>/u)
+    assert.match(plainHtml, /prefers-color-scheme:dark/u)
+  })
+
+  it('refuses relative paths, out-of-root paths, and gateway state', async () => {    const relative = await fetch(`http://127.0.0.1:${port}/__webim/fs?path=hello.txt`, { headers: { cookie, 'user-agent': TEST_UA } })
     assert.equal(relative.status, 400)
 
     const outside = await fetch(`http://127.0.0.1:${port}/__webim/fs?path=${encodeURIComponent(tmpdir())}`, {
