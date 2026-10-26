@@ -25,6 +25,12 @@ const DEMO_TUNNEL = 'https://lantern-4821.trycloudflare.com'
 const DEMO_LAN = '192.0.2.45'
 const DEMO_PUBLIC = '203.0.113.7'
 const DEMO_TOKEN = 'DEMO-TOKEN-000000000000000000000000000'
+/** Any real hostname in the panel becomes this documentation domain. */
+const DEMO_HOST = 'dsh.example.com'
+// Real domains are replaced, documentation ones are kept so the hints still read
+// correctly. Only plausible TLDs are matched, so `plugin.log` / `app.js` survive.
+
+const TOP_LEVEL = 'com|net|org|io|dev|app|cn|hk|tw|jp|us|uk|co|me|xyz|top|info|biz|site|online|tech|cloud|link|live|store|work|space|ltd|vip|cc|tv|ai'
 
 function httpJson(path) {
   return new Promise((resolve, reject) => {
@@ -131,6 +137,7 @@ const sanitize = (qrSvg) => `(() => {
     lan: ${JSON.stringify(DEMO_LAN)},
     public: ${JSON.stringify(DEMO_PUBLIC)},
     token: ${JSON.stringify(DEMO_TOKEN)},
+    host: ${JSON.stringify(DEMO_HOST)},
   }
   const KEEP = /^(?:0\\.0\\.0\\.0|127\\.0\\.0\\.1|255\\.|192\\.0\\.2\\.)/
   const fix = (text) => text
@@ -139,6 +146,13 @@ const sanitize = (qrSvg) => `(() => {
       if (KEEP.test(ip)) return ip
       if (/^192\\.168\\./.test(ip) || /^10\\./.test(ip) || /^172\\.(1[6-9]|2\\d|3[01])\\./.test(ip)) return DEMO.lan
       return DEMO.public
+    })
+    // A fixed-tunnel hostname is the owner's own domain: never publish it.
+    .replace(/\\b(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+(?:com|net|org|io|dev|app|cn|hk|tw|jp|us|uk|co|me|xyz|top|info|biz|site|online|tech|cloud|link|live|store|work|space|ltd|vip|cc|tv|ai)\\b/gi, (host) => {
+      const lower = host.toLowerCase()
+      if (/^(?:[a-z0-9-]+\\.)+example\\.(?:com|org|net)$/u.test(lower)) return host
+      const KEEP_HOST = /^(?:.*\.)?(?:example\.(?:com|org|net)|trycloudflare\.com|cloudflare\.com|cloudflareaccess\.com|deepseek\.com|github\.com|npmjs\.com|nodejs\.org)$/u
+      return KEEP_HOST.test(lower) ? host : DEMO.host
     })
     .replace(/token=[^&\\s"']+/g, 'token=' + DEMO.token)
     .replace(/(?<!token=)\\b[A-Za-z0-9_-]{40,}\\b/g, DEMO.token)
@@ -259,6 +273,15 @@ try {
   await wait(6000)
   if (!(await evaluate(OPEN_PANEL))) throw new Error('settings panel did not mount')
   await wait(1500)
+  if (process.argv.includes('--check')) {
+    // Optional: show the self-check result in the shot instead of a blank line.
+    await evaluate(`(() => {
+      const el = document.querySelector('.wb')
+      ;[...el.querySelectorAll('button')].find((b) => /自检/u.test(b.textContent || ''))?.click()
+      return true
+    })()`)
+    await wait(9000)
+  }
   await capture('settings-tunnel.png', sanitize(qrSvg))
 
   // ---- desktop, public address (shows the field + two entries) ----

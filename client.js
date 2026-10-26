@@ -66,6 +66,7 @@ window.__ModuleLoader__.load({
       tunnelHostRequired: '先在下面的「域名」里填上你的域名，再切到固定隧道。',
       tunnelTokenLabel: '连接令牌',
       tunnelTokenKept: '已保存，留空表示不修改',
+      tunnelTokenPlaceholder: '粘贴连接令牌',
       tunnelSavedNamed: '固定隧道已保存，进程正在重启。',
       tunnelModeSwitch: '切换模式会重开隧道进程，当前临时地址立即失效。',
       tunnelCheck: '自检',
@@ -154,6 +155,7 @@ window.__ModuleLoader__.load({
       tunnelHostRequired: 'Fill in your hostname first, then switch to the fixed tunnel.',
       tunnelTokenLabel: 'Tunnel token',
       tunnelTokenKept: 'already saved — leave empty to keep it',
+      tunnelTokenPlaceholder: 'paste the tunnel token',
       tunnelSavedNamed: 'Fixed tunnel saved; the process is restarting.',
       tunnelModeSwitch: 'Switching restarts the tunnel process and drops the current quick address.',
       tunnelCheck: 'Check',
@@ -838,7 +840,7 @@ window.__ModuleLoader__.load({
                         type: 'password',
                         value: namedToken,
                         autoComplete: 'off',
-                        placeholder: tunnelState.hasToken ? t('tunnelTokenKept') : 'eyJhIjoi…',
+                        placeholder: tunnelState.hasToken ? t('tunnelTokenKept') : t('tunnelTokenPlaceholder'),
                         spellCheck: false,
                         onChange: (event) => {
                           setNamedTouched(true)
