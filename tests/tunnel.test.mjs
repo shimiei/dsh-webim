@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
-import { TunnelManager, cloudflaredAsset, fixedUrl, isFatalTunnelError, normalizeHostname, parseQuickTunnelUrl } from '../lib/tunnel.js'
+import { TunnelManager, accessHeaders, cloudflaredAsset, describeCheckFailure, fixedUrl, isFatalTunnelError, normalizeHostname, parseQuickTunnelUrl } from '../lib/tunnel.js'
 
 test('a quick-tunnel hostname is pulled out of cloudflared output', () => {
   const banner = `
@@ -174,4 +174,22 @@ test('a rejected tunnel token is reported instead of retried forever', () => {
   assert.equal(isFatalTunnelError('ERR Register tunnel error from server side error="Unauthorized: Tunnel not found"'), true)
   assert.equal(isFatalTunnelError('INF Registered tunnel connection connIndex=0'), false)
   assert.equal(isFatalTunnelError(''), false)
+})
+test('a Cloudflare Access service token becomes request headers only when complete', () => {
+  assert.deepEqual(accessHeaders('032e7f38.access', ' secret '), {
+    'CF-Access-Client-Id': '032e7f38.access',
+    'CF-Access-Client-Secret': 'secret',
+  })
+  assert.deepEqual(accessHeaders('032e7f38.access', ''), {})
+  assert.deepEqual(accessHeaders('', 'secret'), {})
+  assert.deepEqual(accessHeaders(undefined, undefined), {})
+})
+
+test('a failed self-check names the thing to fix', () => {
+  assert.match(describeCheckFailure({ code: 'ENOTFOUND' }), /Public Hostname|解析/u)
+  assert.match(describeCheckFailure({ status: 1033 }), /1033/u)
+  assert.match(describeCheckFailure({ status: 403 }), /Access/u)
+  assert.match(describeCheckFailure({ status: 502 }), /3081/u)
+  assert.match(describeCheckFailure({ code: 'ETIMEDOUT' }), /超时/u)
+  assert.equal(describeCheckFailure({}), '打不开这个域名')
 })

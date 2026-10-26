@@ -67,6 +67,11 @@ window.__ModuleLoader__.load({
       tunnelTokenKept: '已保存，留空表示不修改',
       tunnelSavedNamed: '固定隧道已保存，进程正在重启。',
       tunnelModeSwitch: '切换模式会重开隧道进程，当前临时地址立即失效。',
+      tunnelCheck: '自检',
+      tunnelChecking: '自检中…',
+      tunnelCheckOk: '外部可访问',
+      tunnelCheckFail: '外部打不开',
+      tunnelAccessHint: '如果域名挂了 Cloudflare Access，先在 $DSH_HOME/webim/access-client-id.txt 与 access-client-secret.txt 里放服务令牌，自检会带着它去访问。',
       tunnelOn: '运行中',
       tunnelOff: '未开启',
       tunnelStart: '开启隧道',
@@ -149,6 +154,11 @@ window.__ModuleLoader__.load({
       tunnelTokenKept: 'already saved — leave empty to keep it',
       tunnelSavedNamed: 'Fixed tunnel saved; the process is restarting.',
       tunnelModeSwitch: 'Switching restarts the tunnel process and drops the current quick address.',
+      tunnelCheck: 'Check',
+      tunnelChecking: 'Checking…',
+      tunnelCheckOk: 'reachable from outside',
+      tunnelCheckFail: 'not reachable',
+      tunnelAccessHint: 'If the hostname sits behind Cloudflare Access, drop a service token into $DSH_HOME/webim/access-client-id.txt and access-client-secret.txt; the check will send it.',
       tunnelOn: 'running',
       tunnelOff: 'off',
       tunnelStart: 'Start tunnel',
@@ -365,6 +375,7 @@ window.__ModuleLoader__.load({
       const [namedHost, setNamedHost] = React.useState('')
       const [namedToken, setNamedToken] = React.useState('')
       const [namedTouched, setNamedTouched] = React.useState(false)
+      const [checkResult, setCheckResult] = React.useState(null)
       const watchingRef = React.useRef(false)
       const cancelWatchRef = React.useRef(false)
 
@@ -404,6 +415,21 @@ window.__ModuleLoader__.load({
         if (!info || namedTouched) return
         setNamedHost(info.tunnel?.hostname || '')
       }, [info, namedTouched])
+
+      /** Ask the host to reach the fixed hostname from the outside. */
+      async function runCheck() {
+        setBusy('check')
+        setCheckResult(null)
+        setError(null)
+        try {
+          const result = await rpcCall('checkNamed', {})
+          if (applyResult(result)) setCheckResult(result.value?.check ?? null)
+        } catch (failure) {
+          setError(describeFailure(failure))
+        } finally {
+          setBusy('')
+        }
+      }
 
       /** Save the fixed-tunnel settings and let the host restart the process. */
       async function saveNamed(mode) {
@@ -818,8 +844,13 @@ window.__ModuleLoader__.load({
                         },
                       }),
                       h('button', { type: 'button', className: 'wb-btn primary', disabled: busy !== '', onClick: () => void saveNamed('named') }, t('save')),
+                      h('button', { type: 'button', className: 'wb-btn', disabled: busy !== '', onClick: () => void runCheck() }, busy === 'check' ? t('tunnelChecking') : t('tunnelCheck')),
                     ),
                     h('p', { className: 'wb-note' }, t('tunnelNamedHint')),
+                    checkResult
+                      ? h('p', { className: checkResult.ok ? 'wb-note' : 'wb-err' },
+                        `${checkResult.ok ? '✓' : '✗'} ${checkResult.ok ? t('tunnelCheckOk') : t('tunnelCheckFail')}：${checkResult.detail}`)
+                      : null,
                   ) : null,
                   tunnelState.error ? h('p', { className: 'wb-err' }, `${t('tunnelFailed')}：${tunnelState.error}`) : null,
                   h('label', { className: `wb-tg${publicOn ? ' on' : ''} wb-bar-text` },

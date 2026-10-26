@@ -1,6 +1,6 @@
 {
   "name": "dsh-webim",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "private": false,
   "description": "Remote web entry for DeepSeek Harness: reuse the same DSH web UI from your phone or another network, with a rotatable token link and QR code in Settings, a built-in Cloudflare quick tunnel, a phone layout, per-feature switches, and an HTTP/WebSocket bridge to the local Harness.",
   "keywords": ["deepseek", "harness", "dsh", "plugin", "remote", "tunnel", "cloudflare", "qr", "mobile"],

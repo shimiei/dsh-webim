@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-1.6.0-3b82f6?style=flat-square">
+  <img alt="version" src="https://img.shields.io/badge/version-1.6.1-3b82f6?style=flat-square">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-8b95a5?style=flat-square">
   <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A518-3b82f6?style=flat-square">
   <img alt="runtime deps" src="https://img.shields.io/badge/runtime%20deps-0-3b82f6?style=flat-square">
@@ -33,6 +33,7 @@ DeepSeek Harness（DSH）默认只监听 `127.0.0.1` 的随机端口，同一个
 | 三种接入方式 | 仅局域网 / 公网直连（自己的 IP 或域名）/ Cloudflare 快速隧道；一次只开一种，也能让隧道与公网并存 |
 | 内置隧道 | 自动下载并拉起 cloudflared quick tunnel，几秒后拿到 `https://xxx.trycloudflare.com`，不用配端口映射 |
 | 固定隧道 | 也可以跑自己的域名：填域名 + Zero Trust 令牌，域名永不变；令牌被拒会直接报错并停止重连，不会反复重启 |
+| 自检 | 面板里点「自检」，由本机真的去访问 `https://你的域名/__webim/ping`，把「隧道在跑」和「域名真能打开」分开：解析没建、1033、Access 拦截、回源 502 各有各的话术 |
 | 手机层 | 窄屏抽屉、输入框不再被键盘顶飞、设置页单列，`interactive-widget=resizes-content` |
 | 运行时开关 | 总开关 / 局域网 / 公网 / 移动端 / 隧道 / 文件查看 / 路径转链接 / 浮动入口，全都不用重启 |
 | 主题自适应 | 浅色/深色跟随 Harness 本身：浮标、面板、提示条、手机抽屉、文件浏览页全部同步，没有一块"深色孤岛" |
@@ -143,6 +144,8 @@ node bin/serve.mjs --host 0.0.0.0 --port 3081
 运行时状态都在 `$DSH_HOME/webim/`：`token.json`、`public-url.txt`、`qr-target.txt`、`features.json`、`tunnel.json`、`plugin.log`（插件日志，排障用）、`cloudflared/`。删掉对应文件即回到默认。
 
 固定隧道多两个文件：`tunnel-named.json`（域名 + 模式）和 `tunnel-token.txt`（连接令牌，权限 0600）。**令牌单独存文件、不进配置**，避免误贴进 issue 或提交到仓库；面板里只显示"已保存"，`status()` 也只回 `hasToken`。
+
+如果域名外面还套了 Cloudflare Access（Zero Trust 应用），把 Access **服务令牌**放进 `access-client-id.txt` 与 `access-client-secret.txt`，「自检」会带 `CF-Access-Client-Id` / `CF-Access-Client-Secret` 去访问。服务令牌只解决"机器过 Access 登录页"，不能建 DNS / 隧道——那是 API Token 的活。
 
 ### 固定隧道怎么配
 
