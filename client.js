@@ -63,6 +63,7 @@ window.__ModuleLoader__.load({
       tunnelModeNamed: '固定隧道',
       tunnelNamedHint: '固定隧道的地址不会再变。令牌在 Zero Trust → Networks → Tunnels 里复制；还要在那个隧道下加一条 Public Hostname：你的域名 → HTTP → 127.0.0.1:3081，否则域名解析不到。',
       tunnelHostLabel: '域名',
+      tunnelHostRequired: '先在下面的「域名」里填上你的域名，再切到固定隧道。',
       tunnelTokenLabel: '连接令牌',
       tunnelTokenKept: '已保存，留空表示不修改',
       tunnelSavedNamed: '固定隧道已保存，进程正在重启。',
@@ -150,6 +151,7 @@ window.__ModuleLoader__.load({
       tunnelModeNamed: 'Fixed tunnel',
       tunnelNamedHint: 'A fixed tunnel keeps one address forever. Copy the token from Zero Trust → Networks → Tunnels, and add a Public Hostname there (your domain → HTTP → 127.0.0.1:3081) or the name will not resolve.',
       tunnelHostLabel: 'Hostname',
+      tunnelHostRequired: 'Fill in your hostname first, then switch to the fixed tunnel.',
       tunnelTokenLabel: 'Tunnel token',
       tunnelTokenKept: 'already saved — leave empty to keep it',
       tunnelSavedNamed: 'Fixed tunnel saved; the process is restarting.',
@@ -413,7 +415,9 @@ window.__ModuleLoader__.load({
 
       React.useEffect(() => {
         if (!info || namedTouched) return
-        setNamedHost(info.tunnel?.hostname || '')
+        // Never blank the field: the hostname is saved configuration and the
+        // user needs it when switching back from the quick tunnel.
+        setNamedHost((previous) => (previous !== '' ? previous : info.tunnel?.hostname || ''))
       }, [info, namedTouched])
 
       /** Ask the host to reach the fixed hostname from the outside. */
@@ -434,14 +438,15 @@ window.__ModuleLoader__.load({
       /** Save the fixed-tunnel settings and let the host restart the process. */
       async function saveNamed(mode) {
         const wanted = mode === 'named' ? 'named' : 'quick'
-        if (wanted === 'named' && namedHost.trim() === '' && !(info?.tunnel?.hostname)) {
-          setError(t('tunnelNamedHint'))
+        const hostname = namedHost.trim() || info?.tunnel?.hostname || ''
+        if (wanted === 'named' && hostname === '') {
+          setError(t('tunnelHostRequired'))
           return
         }
         setNamedTouched(false)
         await run('named', 'setTunnelNamed', {
           mode: wanted,
-          hostname: namedHost.trim(),
+          hostname,
           token: namedToken.trim(),
         })
         setNamedToken('')

@@ -193,3 +193,24 @@ test('a failed self-check names the thing to fix', () => {
   assert.match(describeCheckFailure({ code: 'ETIMEDOUT' }), /超时/u)
   assert.equal(describeCheckFailure({}), '打不开这个域名')
 })
+test('switching back to the fixed tunnel keeps the saved hostname', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'webim-switch-'))
+  try {
+    const manager = new TunnelManager({ stateDir: dir, port: () => 3081, binary: join(dir, 'missing.exe') })
+    const token = 'eyJhIjoiZmFrZSIsInQiOiJ0dW5uZWwiLCJzIjoic2VjcmV0In0='.padEnd(64, 'A')
+    await manager.setNamed({ mode: 'named', hostname: 'dsh.hayhk.com', token })
+    await manager.setNamed({ mode: 'quick' })
+
+    // The panel only knows what status() tells it, and it still needs the domain.
+    assert.equal(manager.status().hostname, 'dsh.hayhk.com')
+    assert.equal(manager.status().url, '')
+
+    // Switching back with an empty field must not wipe the saved hostname.
+    await manager.setNamed({ mode: 'named', hostname: '', token: '' })
+    assert.equal(manager.status().mode, 'named')
+    assert.equal(manager.status().hostname, 'dsh.hayhk.com')
+    assert.equal(manager.status().hasToken, true)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})

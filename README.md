@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-1.6.1-3b82f6?style=flat-square">
+  <img alt="version" src="https://img.shields.io/badge/version-1.6.2-3b82f6?style=flat-square">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-8b95a5?style=flat-square">
   <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A518-3b82f6?style=flat-square">
   <img alt="runtime deps" src="https://img.shields.io/badge/runtime%20deps-0-3b82f6?style=flat-square">
