@@ -11,7 +11,7 @@ test('the phone drawer never fights an app that owns its own drawer', () => {
   // only apply behind an explicit marker.
   for (const line of css.split(/\r?\n/u)) {
     if (!/\[class\*="sidebarCol"\]/.test(line) || !/html\.webim-mobile/.test(line)) continue
-    assert.match(line, /webim-own-drawer/u, `unscoped drawer rule: ${line.trim()}`)
+    assert.match(line, /webim-own-layout/u, `unscoped drawer rule: ${line.trim()}`)
   }
   assert.match(css, /transform: translate3d\(-104%, 0, 0\) !important/u)
   assert.match(css, /translate3d\(0, 0, 0\) !important/u)
@@ -22,6 +22,8 @@ test('the drawer button delegates to the app when it has a drawer', () => {
   assert.match(client, /function appDrawerFrame/u)
   assert.match(client, /function claimAppDrawer/u)
   assert.match(client, /function claimOwnDrawer/u)
+  // and it must stand down completely when the app owns the layout
+  assert.match(client, /appOwned: true/u)
   // openDrawer and closeDrawer both consult the app first
   const openBody = client.slice(client.indexOf('function openDrawer()'), client.indexOf('function closeDrawer()'))
   assert.match(openBody, /claimAppDrawer\(\)/u)
@@ -32,4 +34,12 @@ test('every pill and drawer element still mounts exactly once', () => {
   assert.match(client, /if \(window\.__DSH_WEBIM_CLIENT__\) return/u)
   assert.match(client, /webim-drawer-btn/u)
   assert.match(client, /webim-scrim/u)
+})
+test('the entry pill is only hidden by a dialog that is really on screen', () => {
+  // `[role="dialog"]` alone matches 0.2.x's hidden sidebar shell and would keep
+  // the pill invisible forever, so the rule now hangs off a JS-set class.
+  assert.match(css, /html\.webim-dialog-open #dsh-webim-entry/u)
+  assert.doesNotMatch(css, /body:has\(\[role="dialog"\]\)/u)
+  assert.match(client, /function watchDialogs/u)
+  assert.match(client, /style\.visibility === 'hidden'/u)
 })

@@ -246,6 +246,28 @@
   // Floating entry pill (shadow DOM so Harness styles cannot reach it)
   // ---------------------------------------------------------------------------
 
+  /**
+   * Hide the pill while a dialog really covers the screen. A mounted-but-hidden
+   * `[role="dialog"]` (0.2.x sidebar shell) must not count, or the entry pill
+   * would never come back.
+   */
+  function watchDialogs() {
+    const covering = () => {
+      for (const el of document.querySelectorAll('[role="dialog"], dialog[open]')) {
+        const style = getComputedStyle(el)
+        if (style.visibility === 'hidden' || style.display === 'none' || style.opacity === '0') continue
+        const rect = el.getBoundingClientRect()
+        if (rect.width >= window.innerWidth * 0.5 && rect.height >= window.innerHeight * 0.4) return true
+      }
+      return false
+    }
+    const apply = () => document.documentElement.classList.toggle('webim-dialog-open', covering())
+    apply()
+    const observer = new MutationObserver(apply)
+    observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'open', 'aria-hidden'] })
+    window.setInterval(apply, 800)
+  }
+
   function createPill() {
     if (document.getElementById('dsh-webim-entry')) return
     const host = document.createElement('div')
@@ -386,8 +408,31 @@
       else document.documentElement.appendChild(host)
       void refreshStatus()
     }
+    /**
+     * The app renders its frame after our bundle runs, so a legacy build can look
+     * modern for the first seconds. Re-check for a while: as soon as the app's own
+     * drawer shows up, drop everything we added and leave the layout to it.
+     */
+    const watchForAppDrawer = () => {
+      let tries = 0
+      const timer = window.setInterval(() => {
+        tries += 1
+        if (!appDrawerFrame()) {
+          if (tries >= 20) window.clearInterval(timer)
+          return
+        }
+        window.clearInterval(timer)
+        if (state.mobile?.appOwned) return
+        button.remove()
+        scrim.remove()
+        document.documentElement.classList.remove('webim-mobile', 'webim-own-layout', 'webim-drawer-open')
+        state.mobile = { open: false, appOwned: true, toggle() {}, button: null }
+      }, 500)
+    }
+
     if (document.body) mount()
     else document.addEventListener('DOMContentLoaded', mount, { once: true })
+    watchForAppDrawer()
   }
 
   function formatUptime(seconds) {
@@ -472,6 +517,13 @@
   function createMobileUi() {
     if (state.mobile) return
     ensureViewportMeta()
+    // 0.2.x already lays phones out (frame drawer + its own toggle). Touching its
+    // columns from here only shifts the rail content off the drawer, so when that
+    // frame exists we stay out of the way entirely: no button, no scrim, no CSS.
+    if (appDrawerFrame()) {
+      state.mobile = { open: false, appOwned: true, toggle() {}, button: null }
+      return
+    }
     const media = window.matchMedia(MOBILE_QUERY)
 
     const button = document.createElement('button')
@@ -497,13 +549,13 @@
 
     function claimAppDrawer() {
       if (appDrawerOpen() === null) return false
-      document.documentElement.classList.remove('webim-own-drawer', 'webim-drawer-open')
+      document.documentElement.classList.remove('webim-own-layout', 'webim-drawer-open')
       return true
     }
 
     /** Older builds have no drawer of their own: we slide the rail ourselves. */
     function claimOwnDrawer() {
-      document.documentElement.classList.add('webim-own-drawer')
+      document.documentElement.classList.add('webim-own-layout')
     }
 
     function openDrawer() {
@@ -621,6 +673,7 @@
     const applyMode = () => {
       const on = media.matches
       document.documentElement.classList.toggle('webim-mobile', on)
+      document.documentElement.classList.toggle('webim-own-layout', on && appDrawerFrame() === null)
       button.style.display = on ? '' : 'none'
       if (!on) closeDrawer()
     }
@@ -628,8 +681,31 @@
     if (typeof media.addEventListener === 'function') media.addEventListener('change', applyMode)
     else if (typeof media.addListener === 'function') media.addListener(applyMode)
 
+    /**
+     * The app renders its frame after our bundle runs, so a legacy build can look
+     * modern for the first seconds. Re-check for a while: as soon as the app's own
+     * drawer shows up, drop everything we added and leave the layout to it.
+     */
+    const watchForAppDrawer = () => {
+      let tries = 0
+      const timer = window.setInterval(() => {
+        tries += 1
+        if (!appDrawerFrame()) {
+          if (tries >= 20) window.clearInterval(timer)
+          return
+        }
+        window.clearInterval(timer)
+        if (state.mobile?.appOwned) return
+        button.remove()
+        scrim.remove()
+        document.documentElement.classList.remove('webim-mobile', 'webim-own-layout', 'webim-drawer-open')
+        state.mobile = { open: false, appOwned: true, toggle() {}, button: null }
+      }, 500)
+    }
+
     if (document.body) mount()
     else document.addEventListener('DOMContentLoaded', mount, { once: true })
+    watchForAppDrawer()
   }
 
   // ---------------------------------------------------------------------------
@@ -640,7 +716,10 @@
     state.status = status
     state.features = status?.features ?? null
     if (state.features && state.features.mobileUi !== false) createMobileUi()
-    if (!state.features || state.features.pill !== false) createPill()
+    if (!state.features || state.features.pill !== false) {
+      createPill()
+      watchDialogs()
+    }
     watchTheme()
     if (!state.features || state.features.linkifyPaths !== false) startLinkify()
   }

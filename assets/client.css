@@ -97,16 +97,16 @@ html.webim-mobile body {
    and the keyboard is already handled by `interactive-widget=resizes-content`.
    The `:not(.wb…)` guards keep these attribute selectors from matching this
    plugin's own settings markup. */
-html.webim-mobile [class*="_frame"]:not([class^="wb"]):not([class*=" wb-"]),
-html.webim-mobile [class*="-frame"]:not([class^="wb"]):not([class*=" wb-"]) {
+html.webim-mobile.webim-own-layout [class*="_frame"]:not([class^="wb"]):not([class*=" wb-"]),
+html.webim-mobile.webim-own-layout [class*="-frame"]:not([class^="wb"]):not([class*=" wb-"]) {
   width: 100% !important;
   grid-template-columns: minmax(0, 1fr) !important;
 }
 
 /* --- conversation column takes the whole width ---------------------------- */
 
-html.webim-mobile [class*="centerCol"],
-html.webim-mobile [class*="center-col"] {
+html.webim-mobile.webim-own-layout [class*="centerCol"],
+html.webim-mobile.webim-own-layout [class*="center-col"] {
   grid-column: 1 / -1 !important;
   flex: 1 1 100% !important;
   width: 100% !important;
@@ -123,8 +123,8 @@ html.webim-mobile [class*="center-col"] {
 
 /* --- rail becomes a drawer ------------------------------------------------ */
 
-html.webim-mobile.webim-own-drawer [class*="sidebarCol"],
-html.webim-mobile.webim-own-drawer [class*="sidebar-col"] {
+html.webim-mobile.webim-own-layout [class*="sidebarCol"],
+html.webim-mobile.webim-own-layout [class*="sidebar-col"] {
   position: fixed !important;
   top: 0;
   bottom: 0;
@@ -142,24 +142,24 @@ html.webim-mobile.webim-own-drawer [class*="sidebar-col"] {
   will-change: transform;
 }
 
-html.webim-mobile.webim-own-drawer.webim-drawer-open [class*="sidebarCol"],
-html.webim-mobile.webim-own-drawer.webim-drawer-open [class*="sidebar-col"] {
+html.webim-mobile.webim-own-layout.webim-drawer-open [class*="sidebarCol"],
+html.webim-mobile.webim-own-layout.webim-drawer-open [class*="sidebar-col"] {
   transform: translate3d(0, 0, 0) !important;
 }
 
 /* Inside the drawer the rail must render expanded, not icon-only. */
-html.webim-mobile.webim-own-drawer [class*="sidebarCol"] [class*="_collapsed"],
-html.webim-mobile.webim-own-drawer [class*="sidebarCol"] [class*="collapsed"] {
+html.webim-mobile.webim-own-layout [class*="sidebarCol"] [class*="_collapsed"],
+html.webim-mobile.webim-own-layout [class*="sidebarCol"] [class*="collapsed"] {
   width: 100% !important;
   max-width: 100% !important;
 }
 
-html.webim-mobile.webim-own-drawer [class*="sidebarCol"] nav,
-html.webim-mobile.webim-own-drawer [class*="sidebarCol"] [class*="panelList"] {
+html.webim-mobile.webim-own-layout [class*="sidebarCol"] nav,
+html.webim-mobile.webim-own-layout [class*="sidebarCol"] [class*="panelList"] {
   width: 100% !important;
 }
 
-html.webim-mobile.webim-own-drawer .webim-scrim {
+html.webim-mobile.webim-own-layout .webim-scrim {
   position: fixed;
   inset: 0;
   z-index: 65;
@@ -170,13 +170,13 @@ html.webim-mobile.webim-own-drawer .webim-scrim {
   -webkit-tap-highlight-color: transparent;
 }
 
-html.webim-mobile.webim-own-drawer.webim-drawer-open .webim-scrim {
+html.webim-mobile.webim-own-layout.webim-drawer-open .webim-scrim {
   opacity: 1;
   pointer-events: auto;
 }
 
 /* The desktop pill would sit on top of the drawer footer, so it steps aside. */
-html.webim-mobile #dsh-webim-entry {
+html.webim-mobile.webim-own-layout #dsh-webim-entry {
   transition: opacity 0.15s ease;
 }
 
@@ -185,9 +185,13 @@ html.webim-mobile.webim-drawer-open #dsh-webim-entry {
   pointer-events: none;
 }
 
-/* The pill also floats over dialogs (Settings), where it covers real controls. */
-body:has(dialog[open]) #dsh-webim-entry,
-body:has([role="dialog"]) #dsh-webim-entry {
+/* The pill also floats over dialogs (Settings), where it covers real controls.
+   `[role="dialog"]` alone is not enough: 0.2.x marks its always-mounted sidebar
+   shell with that role while keeping it visibility:hidden, which used to hide the
+   pill forever. The class below is set from JS only for a dialog that is really
+   on screen. */
+html.webim-dialog-open #dsh-webim-entry,
+body:has(dialog[open]) #dsh-webim-entry {
   opacity: 0;
   pointer-events: none;
 }
