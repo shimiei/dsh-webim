@@ -101,6 +101,27 @@ window.__ModuleLoader__.load({
       tokenMissing: '令牌尚未生成。',
       tokenRotated: '令牌已于',
       rotated: '刷新',
+      pairTitle: '设备配对',
+      pairHint: '给原生客户端（例如 iOS 上的 IMDSH）用的长效凭据：在这里生成一串码，在 App 里输入一次，这台设备就拿到自己的 device token；一串码只能兑换给一台设备，重装同一台设备会拿回同一个 token。',
+      pairGenerate: '生成配对码',
+      pairGenerating: '生成中…',
+      pairGenerated: '配对码已生成，输入到 App 里即可完成配对。',
+      pairJustCreated: '刚生成的配对码',
+      pairEmpty: '还没有配对码。',
+      pairDefaultDays: '默认有效期',
+      pairPermanent: '永久有效',
+      pairRemain: '剩余',
+      pairExpired: '已过期',
+      pairRedeemed: '已兑换',
+      pairUnused: '未兑换',
+      pairRevokedTag: '已吊销',
+      pairDevices: '已配对设备',
+      pairDevicesEmpty: '还没有设备完成配对。',
+      pairDeviceNoName: '未命名设备',
+      pairLastSeen: '最后活跃',
+      pairRevoke: '吊销',
+      pairConfirmDevice: '吊销后这台设备的 device token 立刻失效，必须重新配对。确定吊销吗？',
+      pairConfirmCode: '吊销后这串配对码就不能再兑换了。确定吊销吗？',
       error: '操作失败',
       unreachable: '读取失败：宿主插件没有响应。确认 dsh-webim 已安装并已重启应用。',
       details: '说明',
@@ -190,6 +211,27 @@ window.__ModuleLoader__.load({
       tokenMissing: 'No token has been generated yet.',
       tokenRotated: 'Token refreshed at',
       rotated: 'refreshed',
+      pairTitle: 'Device pairing',
+      pairHint: 'Long-lived credentials for a native client (IMDSH on iOS, for example): generate a code here, type it into the App once, and that device gets its own device token. One code pairs exactly one device, and a reinstall of the same device gets the same token back.',
+      pairGenerate: 'Generate code',
+      pairGenerating: 'Generating…',
+      pairGenerated: 'Code generated — type it into the App to finish pairing.',
+      pairJustCreated: 'Freshly generated code',
+      pairEmpty: 'No pairing code yet.',
+      pairDefaultDays: 'Default lifetime',
+      pairPermanent: 'never expires',
+      pairRemain: 'expires in',
+      pairExpired: 'expired',
+      pairRedeemed: 'redeemed',
+      pairUnused: 'not redeemed',
+      pairRevokedTag: 'revoked',
+      pairDevices: 'Paired devices',
+      pairDevicesEmpty: 'No device has paired yet.',
+      pairDeviceNoName: 'Unnamed device',
+      pairLastSeen: 'last seen',
+      pairRevoke: 'Revoke',
+      pairConfirmDevice: 'Revoking kills this device token immediately; the device has to pair again. Revoke?',
+      pairConfirmCode: 'Revoking stops this pairing code from being redeemed. Revoke?',
       error: 'Failed',
       unreachable: 'Could not load: the host plugin did not answer. Check that dsh-webim is installed and the app was restarted.',
       details: 'Details',
@@ -295,6 +337,7 @@ window.__ModuleLoader__.load({
 .wb-switch { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 9px 2px; cursor: pointer;
   border-bottom: 1px solid var(--wb-line-soft); }
 .wb-switch:last-of-type { border-bottom: 0; }
+.wb-switch.is-static { cursor: default; }
 .wb-switch-body { display: grid; gap: 2px; min-width: 0; }
 .wb-switch-label { font-size: 12.5px; }
 .wb-switch-hint { font-size: 11.5px; opacity: .52; line-height: 1.5; }
@@ -380,6 +423,7 @@ window.__ModuleLoader__.load({
       const [namedToken, setNamedToken] = React.useState('')
       const [namedTouched, setNamedTouched] = React.useState(false)
       const [checkResult, setCheckResult] = React.useState(null)
+      const [createdCode, setCreatedCode] = React.useState(null)
       const watchingRef = React.useRef(false)
       const cancelWatchRef = React.useRef(false)
 
@@ -496,6 +540,34 @@ window.__ModuleLoader__.load({
         await run('public', 'setPublicUrl', { url: '' })
       }
 
+      /** Mint a device pairing code and keep it in view for copying. */
+      async function generatePairCode() {
+        setBusy('pairCode')
+        setMessage('')
+        setError(null)
+        try {
+          const result = await rpcCall('pairCode', {})
+          if (applyResult(result)) {
+            setCreatedCode(result.value?.pairing?.created ?? null)
+            setMessage(t('pairGenerated'))
+          }
+        } catch (failure) {
+          setError(describeFailure(failure))
+        } finally {
+          setBusy('')
+        }
+      }
+
+      async function revokeDevice(device) {
+        if (!window.confirm(t('pairConfirmDevice'))) return
+        await run('pair-revoke', 'pairRevoke', { deviceId: device.deviceId })
+      }
+
+      async function revokePairCode(code) {
+        if (!window.confirm(t('pairConfirmCode'))) return
+        await run('pair-code', 'pairRevoke', { code })
+      }
+
       async function copy(id, text) {
         const ok = await copyText(text)
         if (!ok) {
@@ -554,6 +626,9 @@ window.__ModuleLoader__.load({
       const publicOn = featureValues.public === true && enabledOn
       const tunnelState = info?.tunnel ?? {}
       const tunnelBusy = busy === 'tunnel' || tunnelPending || tunnelState.starting === true
+      const pairDays = info?.pairing?.pairDays ?? 0
+      const pairDevices = info?.pairing?.devices ?? []
+      const pairCodes = (info?.pairing?.codes ?? []).filter((entry) => entry.revoked !== true)
 
       /** Mirror a reach patch locally so the panel answers before the listener settles. */
       function applyReach(next) {
@@ -687,6 +762,14 @@ window.__ModuleLoader__.load({
           setTunnelPending(false)
           setTunnelElapsed(0)
         }
+      }
+
+      /** One-line status under a pairing code: used or not, and how long it lasts. */
+      function describeCode(entry) {
+        if (entry.expired) return t('pairExpired')
+        const life = entry.permanent ? t('pairPermanent') : `${t('pairRemain')} ${entry.expiresInDays} ${t('days')}`
+        const used = entry.redeemed ? `${t('pairRedeemed')} · ${entry.deviceIdPrefix}…` : t('pairUnused')
+        return `${used} · ${life}`
       }
 
       return h('section', { className: 'wb' },
@@ -958,6 +1041,94 @@ window.__ModuleLoader__.load({
                 ),
                 access?.tokenConfigured ? h('p', { className: 'wb-note' }, t('tokenPinned')) : h('p', { className: 'wb-note' }, t('refreshHint')),
               ),
+              h('hr', { className: 'wb-divider' }),
+              // Device pairing: one long-lived code per native client install.
+              // Hidden when the host half predates it (info.pairing is absent).
+              info?.pairing ? h('section', { className: 'wb-block' },
+                h('div', { className: 'wb-blockhead' },
+                  h('h3', { className: 'wb-h' }, t('pairTitle')),
+                  h('span', { className: 'wb-hint' }, `${t('pairDefaultDays')} · ${pairDays > 0 ? `${pairDays} ${t('days')}` : t('pairPermanent')}`),
+                  h('span', { className: 'wb-grow' }),
+                  h('button', {
+                    type: 'button',
+                    className: 'wb-btn primary',
+                    disabled: busy !== '',
+                    onClick: () => void generatePairCode(),
+                  }, busy === 'pairCode' ? t('pairGenerating') : t('pairGenerate')),
+                ),
+                h('p', { className: 'wb-note' }, t('pairHint')),
+                createdCode
+                  ? h('div', { className: 'wb-tunnel' },
+                    h('div', { className: 'wb-tunnel-head' },
+                      h('span', { className: 'wb-dot on' }),
+                      h('span', { className: 'wb-tunnel-state' }, t('pairJustCreated')),
+                    ),
+                    h('div', { className: 'wb-actions' },
+                      h('code', { className: 'wb-url wb-grow' }, createdCode.code),
+                      h('button', {
+                        type: 'button',
+                        className: 'wb-btn',
+                        title: createdCode.code,
+                        onClick: () => void copy('pair-created', createdCode.code),
+                      }, copiedId === 'pair-created' ? t('copied') : t('copy')),
+                    ),
+                    h('p', { className: 'wb-note' }, createdCode.permanent
+                      ? t('pairPermanent')
+                      : `${t('pairRemain')} ${createdCode.expiresInDays} ${t('days')}`),
+                  )
+                  : null,
+                pairCodes.length === 0
+                  ? h('div', { className: 'wb-empty' }, h('p', { className: 'wb-note' }, t('pairEmpty')))
+                  : h('div', { className: 'wb-switches' },
+                    ...pairCodes.map((entry) => h('div', { className: 'wb-switch is-static', key: entry.code },
+                      h('span', { className: 'wb-switch-body' },
+                        h('code', { className: 'wb-url' }, entry.code),
+                        h('span', { className: 'wb-switch-hint' }, describeCode(entry)),
+                      ),
+                      h('span', { className: 'wb-entry-acts' },
+                        h('button', {
+                          type: 'button',
+                          className: 'wb-btn',
+                          title: entry.code,
+                          onClick: () => void copy(`pair-${entry.code}`, entry.code),
+                        }, copiedId === `pair-${entry.code}` ? t('copied') : t('copy')),
+                        entry.redeemed
+                          ? null
+                          : h('button', {
+                            type: 'button',
+                            className: 'wb-btn',
+                            disabled: busy !== '' || entry.expired,
+                            onClick: () => void revokePairCode(entry.code),
+                          }, t('pairRevoke')),
+                      ),
+                    )),
+                  ),
+                h('div', { className: 'wb-blockhead' },
+                  h('h3', { className: 'wb-h' }, t('pairDevices')),
+                  h('span', { className: 'wb-grow' }),
+                  h('span', { className: 'wb-hint' }, String(pairDevices.length)),
+                ),
+                pairDevices.length === 0
+                  ? h('div', { className: 'wb-empty' }, h('p', { className: 'wb-note' }, t('pairDevicesEmpty')))
+                  : h('div', { className: 'wb-switches' },
+                    ...pairDevices.map((device) => h('div', { className: 'wb-switch is-static', key: device.deviceId },
+                      h('span', { className: 'wb-switch-body' },
+                        h('span', { className: 'wb-switch-label' },
+                          `${device.name || t('pairDeviceNoName')} · ${device.platform || '—'}`),
+                        h('span', { className: 'wb-switch-hint' },
+                          `${device.deviceIdPrefix}… · ${t('pairLastSeen')} ${formatTime(device.lastSeenAt) || '—'}`),
+                      ),
+                      device.revoked
+                        ? h('span', { className: 'wb-hint' }, t('pairRevokedTag'))
+                        : h('button', {
+                          type: 'button',
+                          className: 'wb-btn',
+                          disabled: busy !== '',
+                          onClick: () => void revokeDevice(device),
+                        }, t('pairRevoke')),
+                    )),
+                  ),
+              ) : null,
               h('details', { className: 'wb-fold' },
                 h('summary', null, t('advanced')),
                 h('div', { className: 'wb-fold-body' },

@@ -1,0 +1,77 @@
+name: imdsh-ios
+
+# 在 GitHub 的 Linux runner 上构建 IMDSH 的未签名 ipa。
+# 不需要 Mac、不需要 Xcode、不需要开发者账号：用 clang + ld64.lld 交叉编译 arm64 Mach-O。
+on:
+  workflow_dispatch:
+    inputs:
+      sdk_tag:
+        description: 'iOS SDK tag (xybp888/iOS-SDKs)'
+        required: false
+        default: 'iOS27.2-SDKs'
+  push:
+    paths:
+      - 'imdsh/**'
+      - '.github/workflows/imdsh-ios.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld-18 zip python3
+          clang --version
+          ld64.lld-18 --version
+
+      - name: Cache iOS SDK
+        id: sdk-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/theos/sdks/iPhoneOS27.2-patched.sdk
+          key: ios-sdk-27.2-patched-v1
+
+      - name: Fetch iOS 27.2 SDK
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
+        env:
+          SDK_TAG: ${{ github.event.inputs.sdk_tag || 'iOS27.2-SDKs' }}
+        run: |
+          git clone --filter=blob:none --no-checkout --depth 1 --branch "$SDK_TAG" \
+            https://github.com/xybp888/iOS-SDKs /tmp/sdk
+          cd /tmp/sdk
+          git sparse-checkout init --cone
+          git sparse-checkout set iPhoneOS27.2.sdk
+          git checkout
+          mkdir -p "$HOME/theos/sdks"
+          mv iPhoneOS27.2.sdk "$HOME/theos/sdks/"
+
+      - name: Patch tbd targets for LLVM 18
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
+        run: bash imdsh/tools/patch-sdk.sh
+
+      - name: Build unsigned ipa
+        run: |
+          OUT_DIR="$PWD/imdsh/dist" bash imdsh/tools/build-ios.sh \
+            "$PWD/imdsh/ios/src" IMDSH com.imdsh.app 27.0 \
+            UIKit Foundation CoreGraphics QuartzCore Security ImageIO UniformTypeIdentifiers QuickLook PhotosUI
+
+      - name: Verify artifact
+        run: |
+          file imdsh/dist/IMDSH.app/IMDSH
+          unzip -l imdsh/dist/IMDSH-unsigned.ipa | head -20
+          python3 -c "
+          import plistlib
+          with open('imdsh/dist/IMDSH.app/Info.plist','rb') as fh: p = plistlib.load(fh)
+          print('bundle:', p.get('CFBundleIdentifier'))
+          print('minOS :', p.get('MinimumOSVersion'))
+          print('family:', p.get('UIDeviceFamily'))
+          "
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IMDSH-unsigned-ipa
+          path: imdsh/dist/IMDSH-unsigned.ipa
+          if-no-files-found: error

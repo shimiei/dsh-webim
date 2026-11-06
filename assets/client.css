@@ -123,8 +123,8 @@ html.webim-mobile [class*="center-col"] {
 
 /* --- rail becomes a drawer ------------------------------------------------ */
 
-html.webim-mobile [class*="sidebarCol"],
-html.webim-mobile [class*="sidebar-col"] {
+html.webim-mobile.webim-own-drawer [class*="sidebarCol"],
+html.webim-mobile.webim-own-drawer [class*="sidebar-col"] {
   position: fixed !important;
   top: 0;
   bottom: 0;
@@ -134,7 +134,7 @@ html.webim-mobile [class*="sidebar-col"] {
   height: 100dvh !important;
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
-  transform: translate3d(-104%, 0, 0);
+  transform: translate3d(-104%, 0, 0) !important;
   transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
   z-index: 70;
   background: var(--dsh-bg, var(--webim-drawer-bg)) !important;
@@ -142,24 +142,24 @@ html.webim-mobile [class*="sidebar-col"] {
   will-change: transform;
 }
 
-html.webim-mobile.webim-drawer-open [class*="sidebarCol"],
-html.webim-mobile.webim-drawer-open [class*="sidebar-col"] {
-  transform: translate3d(0, 0, 0);
+html.webim-mobile.webim-own-drawer.webim-drawer-open [class*="sidebarCol"],
+html.webim-mobile.webim-own-drawer.webim-drawer-open [class*="sidebar-col"] {
+  transform: translate3d(0, 0, 0) !important;
 }
 
 /* Inside the drawer the rail must render expanded, not icon-only. */
-html.webim-mobile [class*="sidebarCol"] [class*="_collapsed"],
-html.webim-mobile [class*="sidebarCol"] [class*="collapsed"] {
+html.webim-mobile.webim-own-drawer [class*="sidebarCol"] [class*="_collapsed"],
+html.webim-mobile.webim-own-drawer [class*="sidebarCol"] [class*="collapsed"] {
   width: 100% !important;
   max-width: 100% !important;
 }
 
-html.webim-mobile [class*="sidebarCol"] nav,
-html.webim-mobile [class*="sidebarCol"] [class*="panelList"] {
+html.webim-mobile.webim-own-drawer [class*="sidebarCol"] nav,
+html.webim-mobile.webim-own-drawer [class*="sidebarCol"] [class*="panelList"] {
   width: 100% !important;
 }
 
-html.webim-mobile .webim-scrim {
+html.webim-mobile.webim-own-drawer .webim-scrim {
   position: fixed;
   inset: 0;
   z-index: 65;
@@ -170,7 +170,7 @@ html.webim-mobile .webim-scrim {
   -webkit-tap-highlight-color: transparent;
 }
 
-html.webim-mobile.webim-drawer-open .webim-scrim {
+html.webim-mobile.webim-own-drawer.webim-drawer-open .webim-scrim {
   opacity: 1;
   pointer-events: auto;
 }

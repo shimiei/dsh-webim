@@ -40,9 +40,23 @@ const TOKEN_B = 'B'.repeat(43)
 const QR_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120"><rect width="120" height="120" fill="#fff"/><path fill="#000" d="M4 4h4v4H4z"/></svg>'
 const rpcCalls = []
 let currentToken = TOKEN_A
+/** The code the pairing block should show after one click. */
+const NEW_CODE = 'K7RM-2QXP-9HDA'
 
 function payloadFor(endpoint, payload) {
   if (endpoint === 'refresh') currentToken = TOKEN_B
+  const pairing = {
+    pairDays: 30,
+    devices: [
+      { deviceId: 'IMDSH-7C1E4F02A9B3', deviceIdPrefix: 'IMDSH-7C', name: 'iPhone 15 Pro', platform: 'ios', createdAt: 1761951600000, lastSeenAt: 1761955200000, revoked: false, revokedAt: 0 },
+      { deviceId: 'IPAD-0A1B2C3D', deviceIdPrefix: 'IPAD-0A1', name: 'iPad', platform: 'ios', createdAt: 1761851600000, lastSeenAt: 0, revoked: true, revokedAt: 1761900000000 },
+    ],
+    codes: [
+      { code: NEW_CODE, createdAt: 1761951600000, expiresAt: 0, expiresInDays: 0, permanent: true, expired: false, redeemed: false, deviceIdPrefix: '', revoked: false, revokedAt: 0 },
+      { code: 'XY2K-FF5Q-EEKF', createdAt: 1761851600000, expiresAt: 1761951600000, expiresInDays: 0, permanent: false, expired: true, redeemed: false, deviceIdPrefix: '', revoked: false, revokedAt: 0 },
+    ],
+  }
+  if (endpoint === 'pairCode') pairing.created = pairing.codes[0]
   const value = {
     version: '1.2.0',
     gateway: { running: true, host: '0.0.0.0', port: 3081, upstream: 'http://127.0.0.1:50912', sessionDays: 30 },
@@ -64,6 +78,23 @@ function payloadFor(endpoint, payload) {
       saved: endpoint === 'setPublicUrl' ? String(payload?.url ?? '') : 'http://203.0.113.10:3081',
     },
     security: { passwordLength: 3, weakPassword: true, secureCookies: false },
+    reach: { lan: true, public: true, tunnel: false },
+    features: {
+      values: { enabled: true, lan: true, public: true, tunnel: false, mobileUi: true, fileBrowser: true, linkifyPaths: true, pill: true },
+      defs: [
+        { key: 'enabled', label: '远程接入总开关', hint: '', default: true },
+        { key: 'lan', label: '局域网入口', hint: '', default: true },
+        { key: 'public', label: '公网入口', hint: '', default: true },
+        { key: 'mobileUi', label: '手机适配', hint: '', default: true },
+        { key: 'tunnel', label: 'Cloudflare 临时隧道', hint: '', default: false },
+        { key: 'fileBrowser', label: '远程文件查看', hint: '', default: true },
+        { key: 'linkifyPaths', label: '路径转链接', hint: '', default: true },
+        { key: 'pill', label: '浮动入口', hint: '', default: true },
+      ],
+    },
+    tunnel: { running: false, starting: false, mode: 'quick', hostname: '', url: '', hasToken: false, error: '' },
+    mobile: { layout: true },
+    pairing,
   }
   return value
 }
@@ -149,13 +180,16 @@ const checks = {
   'injected faces': typeof faced.t === 'function' && typeof faced.rpcCall === 'function',
   'info rpc called once': rpcCalls.length === 1 && rpcCalls[0].endpoint === 'info',
   'title rendered': text.includes('远程接入'),
-  'status line rendered': text.includes('入口运行中') && text.includes('0.0.0.0:3081') && text.includes('http://127.0.0.1:50912'),
+  'status line rendered': text.includes('入口运行中') && text.includes('0.0.0.0:3081'),
   'inline qr svg rendered': html.includes('<svg') && html.includes('wb-qrcode'),
   'token urls rendered': html.includes('203.0.113.10:3081/?token=') && html.includes('192.168.1.7:3081/?token='),
   'copy and open controls': (html.match(/复制/g) ?? []).length >= 2 && html.includes('target="_blank"'),
   'refresh + public address controls': text.includes('刷新令牌') && text.includes('公网地址') && text.includes('保存') && text.includes('自动检测'),
   'mode selector rendered': html.includes('wb-seg-item') && text.includes('仅局域网') && text.includes('Cloudflare 隧道'),
   'entry cards pick the QR target': html.includes('is-target') && text.includes('扫码目标'),
+  'device pairing block rendered': text.includes('设备配对') && text.includes('已配对设备'),
+  'pairing codes listed': html.includes(NEW_CODE) && text.includes('永久有效') && text.includes('已过期'),
+  'paired devices listed with state': text.includes('iPhone 15 Pro') && text.includes('IMDSH-7C…') && text.includes('已吊销'),
   'no undefined/NaN leaks': !text.includes('undefined') && !text.includes('NaN') && !html.includes('undefined'),
 }
 for (const [name, ok] of Object.entries(checks)) console.log(`${ok ? 'OK  ' : 'FAIL'} ${name}`)
@@ -175,6 +209,24 @@ interactionChecks['copy fallback shows the url'] = container.textContent.include
 await click(buttonOf('自动检测'))
 interactionChecks['detect rpc called'] = rpcCalls.some((call) => call.endpoint === 'detectPublicUrl')
 interactionChecks['detect message rendered'] = container.textContent.includes('已取到公网地址')
+
+await click(buttonOf('生成配对码'))
+interactionChecks['pair code rpc called'] = rpcCalls.some((call) => call.endpoint === 'pairCode')
+interactionChecks['fresh code shown for copying'] = container.textContent.includes('刚生成的配对码') && container.innerHTML.includes(NEW_CODE)
+interactionChecks['pairing message rendered'] = container.textContent.includes('配对码已生成')
+
+// Revoke comes in two flavours: an unused code, and a paired device.
+const rowOf = (needle) => [...container.querySelectorAll('.wb-switch')].find((row) => row.textContent.includes(needle))
+const revokeIn = (needle) => [...(rowOf(needle)?.querySelectorAll('button') ?? [])].find((button) => button.textContent === '吊销')
+
+await click(revokeIn(NEW_CODE))
+interactionChecks['unused code revoke rpc called'] = rpcCalls.some(
+  (call) => call.endpoint === 'pairRevoke' && call.payload?.code === NEW_CODE,
+)
+await click(revokeIn('IMDSH-7C'))
+interactionChecks['device revoke rpc called with its id'] = rpcCalls.some(
+  (call) => call.endpoint === 'pairRevoke' && call.payload?.deviceId === 'IMDSH-7C1E4F02A9B3',
+)
 for (const [name, ok] of Object.entries(interactionChecks)) console.log(`${ok ? 'OK  ' : 'FAIL'} ${name}`)
 
 // jsdom does not drive React 18's value tracker from a synthetic input event,

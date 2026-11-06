@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-1.6.2-3b82f6?style=flat-square">
+  <img alt="version" src="https://img.shields.io/badge/version-1.7.0-3b82f6?style=flat-square">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-8b95a5?style=flat-square">
   <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A518-3b82f6?style=flat-square">
   <img alt="runtime deps" src="https://img.shields.io/badge/runtime%20deps-0-3b82f6?style=flat-square">
@@ -38,8 +38,21 @@ DeepSeek Harness（DSH）默认只监听 `127.0.0.1` 的随机端口，同一个
 | 运行时开关 | 总开关 / 局域网 / 公网 / 移动端 / 隧道 / 文件查看 / 路径转链接 / 浮动入口，全都不用重启 |
 | 主题自适应 | 浅色/深色跟随 Harness 本身：浮标、面板、提示条、手机抽屉、文件浏览页全部同步，没有一块"深色孤岛" |
 | 远程安全 | 令牌门 + 会话绑定浏览器 + 失败限流与封禁 + 上游 Cookie 由本机 `.credentials.yaml` 铸造，凭据不出机器 |
+| 设备配对 | 设置页生成一次性配对码（默认 30 天），原生客户端输一次就换来长效 device token；一码一机、可吊销，`pairing.json` 持久化 |
 | 零依赖 | 只用 Node 标准库：QR 编码器、PNG 编码器、代理、二维码都是自己写的 |
 
+
+## 原生 iOS 客户端：IMDSH
+
+`imdsh/` 是一个**全原生**的 iOS 客户端（Objective-C + UIKit + Liquid Glass，iOS 27+，iPhone/iPad）。
+它不用 WebView，直接跟本机的 Harness RPC 与 `/api/remote.mux` 对话：会话列表与实时消息流、
+Markdown 与工具调用渲染、图片发送、工作区文件树与原生预览、多机管理与设备吊销，全是原生视图。
+连接方式就是上面那张配对码：**地址 + 配对码，一码一机，长效凭据存 Keychain**。
+
+- 装机与首次连接：`imdsh/docs/install.md`（未签名 ipa，用 TrollStore / ESign / Feather 自己签）
+- 协议规范：`imdsh/docs/protocol.md`（135 个端点、HTTP/WS 传输、鉴权、数据模型）
+- 构建：`bash imdsh/tools/release.sh` → `imdsh/dist/IMDSH-unsigned.ipa`（Windows + WSL 即可，不需要 Mac）
+- 也可在 GitHub Actions 跑：`.github/workflows/imdsh-ios.yml`（Linux runner 交叉编译）
 ## 截图
 
 > 取自真实运行中的面板，**所有 IP、域名、令牌与二维码都已替换成文档占位值**（RFC 5737 / `example.com`）。
@@ -119,6 +132,7 @@ node bin/serve.mjs --host 0.0.0.0 --port 3081
     publicUrl: ""             # 公网 IP / 域名（含端口），如 http://1.2.3.4:3081
     sessionDays: 30
     sessionBind: 'ua'        # 'ua' = 会话只对扫码那台浏览器有效；'off' = 拿到 cookie 就能进
+    pairDays: 30              # 设备配对码有效期（天）；0 = 永久
     maxFailures: 8            # 同一 IP 失败多少次锁定
     failureWindowMinutes: 10
     blockMinutes: 15
@@ -141,7 +155,7 @@ node bin/serve.mjs --host 0.0.0.0 --port 3081
       pill: true
 ```
 
-运行时状态都在 `$DSH_HOME/webim/`：`token.json`、`public-url.txt`、`qr-target.txt`、`features.json`、`tunnel.json`、`plugin.log`（插件日志，排障用）、`cloudflared/`。删掉对应文件即回到默认。
+运行时状态都在 `$DSH_HOME/webim/`：`token.json`、`public-url.txt`、`qr-target.txt`、`features.json`、`tunnel.json`、`pairing.json`（设备配对码与设备 token，权限 0600）、`plugin.log`（插件日志，排障用）、`cloudflared/`。删掉对应文件即回到默认。
 
 固定隧道多两个文件：`tunnel-named.json`（域名 + 模式）和 `tunnel-token.txt`（连接令牌，权限 0600）。**令牌单独存文件、不进配置**，避免误贴进 issue 或提交到仓库；面板里只显示"已保存"，`status()` 也只回 `hasToken`。
 
@@ -179,12 +193,12 @@ cloudflared tunnel run --token <令牌>
 ## 目录结构
 
 ```
-lib/           网关、代理、安全、文件、隧道、二维码、入口地址推导
+lib/           网关、代理、安全、文件、隧道、配对、二维码、入口地址推导
 assets/        注入到 DSH 前端的小补丁（移动端抽屉、状态胶囊、路径点击）
 client.js      设置页（React，走 DSH 的 slot 与设计 token）
 bin/serve.mjs  独立模式入口
 scripts/       安装 / 卸载
-tests/         86 个测试（安全、网关、token、插件、客户端契约、二维码、隧道）
+tests/         111 个测试（安全、网关、token、插件、客户端契约、设备配对、二维码、隧道）
 tools/         无依赖调试工具（CDP 探针、截图脱敏、banner / 架构图合成）
 docs/          banner、图标、README 截图
 ```
@@ -195,7 +209,7 @@ docs/          banner、图标、README 截图
 node --test tests/*.test.mjs
 ```
 
-当前 **86 个用例全部通过**（约 1.7 秒）：安全 10、网关 16、token-only 6、token 10、host 插件 7、client 契约 12、二维码 11、功能开关 4、隧道 5、入口地址过滤 1。
+当前 **111 个用例全部通过**（约 2.4 秒）：安全 11、网关 16、token-only 6、token 15、host 插件 7、client 契约 13、设备配对 16、二维码 11、功能开关 3、隧道 13。
 
 界面另有几个零依赖探针（需先手动起 headless Edge 并打开调试端口）：
 

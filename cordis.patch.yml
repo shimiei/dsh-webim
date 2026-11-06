@@ -35,6 +35,8 @@
         maxFailures: 8
         failureWindowMinutes: 10
         blockMinutes: 15
+        # 设备配对码的有效期（天）。0 = 永久有效；在设置页生成时会写进 pairing.json
+        pairDays: 30
         # 允许通过 /__webim/fs 浏览的根目录；空数组 = 不限制（仍受 deniedPaths 约束）
         allowedRoots: []
         # 额外的禁止路径（不区分大小写的前缀匹配）

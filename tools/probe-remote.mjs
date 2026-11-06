@@ -3,6 +3,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import http from 'node:http'
 
+const cookieArg = process.argv.includes('--cookie') ? process.argv[process.argv.indexOf('--cookie') + 1] : ''
 const port = Number(process.argv[2] ?? 9223)
 const url = process.argv[3]
 const shot = process.argv[4] ?? 'artifacts/probe.png'
@@ -74,6 +75,15 @@ if (size) {
 }
 if (media) {
   await s('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: media }] })
+}
+if (cookieArg) {
+  const split = cookieArg.indexOf('=')
+  await s('Network.setCookie', {
+    name: cookieArg.slice(0, split),
+    value: cookieArg.slice(split + 1),
+    url,
+    path: '/',
+  })
 }
 await s('Page.navigate', { url })
 

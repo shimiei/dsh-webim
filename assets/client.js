@@ -435,6 +435,24 @@
     return document.querySelector('[class*="sidebarCol"], [class*="sidebar-col"], aside[role="navigation"]')
   }
 
+  /**
+   * 0.2.x moved the phone drawer into the app itself: the frame carries
+   * `data-sidebar-drawer`, and a `data-sidebar-collapsed` attribute drives a
+   * translate that outranks any class-based rule we could write. So when that
+   * frame exists we delegate to the app's own toggle instead of transforming
+   * the column ourselves — its scrim, focus handling and swipe stay intact.
+   */
+  function appDrawerFrame() {
+    return document.querySelector('[data-sidebar-drawer]')
+  }
+
+  /** App-owned drawer state, or null when this build has no such drawer. */
+  function appDrawerOpen() {
+    const frame = appDrawerFrame()
+    if (!frame) return null
+    return frame.getAttribute('data-sidebar-collapsed') === null
+  }
+
   /** The app's own sidebar toggle: it expands the rail so real labels render. */
   function railToggle() {
     for (const button of document.querySelectorAll('button[aria-label]')) {
@@ -477,7 +495,25 @@
     }
     state.mobile = api
 
+    function claimAppDrawer() {
+      if (appDrawerOpen() === null) return false
+      document.documentElement.classList.remove('webim-own-drawer', 'webim-drawer-open')
+      return true
+    }
+
+    /** Older builds have no drawer of their own: we slide the rail ourselves. */
+    function claimOwnDrawer() {
+      document.documentElement.classList.add('webim-own-drawer')
+    }
+
     function openDrawer() {
+      if (claimAppDrawer()) {
+        if (!appDrawerOpen()) railToggle()?.click()
+        api.open = true
+        button.setAttribute('aria-expanded', 'true')
+        return
+      }
+      claimOwnDrawer()
       api.open = true
       // The rail renders icon-only while collapsed; ask the app itself to
       // expand, so the drawer shows real session titles instead of a bare rail.
@@ -494,6 +530,12 @@
     }
 
     function closeDrawer() {
+      if (claimAppDrawer()) {
+        if (appDrawerOpen()) railToggle()?.click()
+        api.open = false
+        button.setAttribute('aria-expanded', 'false')
+        return
+      }
       api.open = false
       document.documentElement.classList.remove('webim-drawer-open')
       button.setAttribute('aria-expanded', 'false')
